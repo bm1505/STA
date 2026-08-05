@@ -42,13 +42,13 @@ void main() async {
     if (kIsWeb) {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
-          apiKey: "AIzaSyC3IaXrGR6U0DppCb_YKHpFZOHYf6CyjhM",
-          authDomain: "smart-transport-app-7fbde.firebaseapp.com",
-          projectId: "smart-transport-app-7fbde",
-          storageBucket: "smart-transport-app-7fbde.firebasestorage.app",
-          messagingSenderId: "463369496285",
-          appId: "1:463369496285:web:c45bf547161b2a39f75d34",
-          measurementId: "G-W12HWEE52X",
+          apiKey: String.fromEnvironment('FB_API_KEY'),
+          authDomain: String.fromEnvironment('FB_AUTH_DOMAIN'),
+          projectId: String.fromEnvironment('FB_PROJECT_ID'),
+          storageBucket: String.fromEnvironment('FB_STORAGE_BUCKET'),
+          messagingSenderId: String.fromEnvironment('FB_SENDER_ID'),
+          appId: String.fromEnvironment('FB_APP_ID'),
+          measurementId: String.fromEnvironment('FB_MEASUREMENT_ID'),
         ),
       );
     } else {

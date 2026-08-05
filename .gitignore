@@ -43,6 +43,14 @@ build/
 /android/app/debug
 /android/app/profile
 /android/app/release
+google-services.json
+GoogleService-Info.plist
+
+# iOS related
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json
+GoogleService-Info.plist
 
 # Node.js / Backend
 node_modules/
