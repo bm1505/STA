@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Angalia kama mtumiaji ni Admin/Staff
+    function isStaff() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ||
+        request.auth.token.email == 'admin@sta.co.tz' ||
+        request.auth.token.email == 'mahegabaraka35@gmail.com' ||
+        request.auth.token.email == 'barakamahega05@gmail.com'
+      );
+    }
+
+    // 2. Riders & Drivers (Profile Data)
+    match /riders/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isStaff());
+    }
+
+    match /drivers/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && (request.auth.uid == userId || isStaff());
+    }
+
+    // 3. Drivers Online (Kwa ajili ya kuona nani yupo idle)
+    match /drivers_online/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 4. RIDE REQUESTS (Hapa ndipo palikuwa na kosa)
+    // Nimefungua ili kila aliyelogin aweze kusoma na kuandika safari
+    match /ride_requests/{requestId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 5. Chats & Messages
+    match /chats/{chatId} {
+      allow read, write: if isSignedIn();
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    // 6. Calls & Signals (Kwa ajili ya In-App Calling)
+    match /calls/{callId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 7. Trips (Data za safari zilizokwisha)
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // 8. SOS, Ratings & Payments
+    match /sos_alerts/{alertId} {
+      allow read: if isStaff();
+      allow create: if isSignedIn();
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+    }
+
+    // 9. Staff & Settings
+    match /staff/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    match /otp_codes/{email} {
+      allow read, write: if isStaff();
+    }
+
+    // Catch-all rule kwa ajili ya usalama wa ziada
+    match /{document=**} {
+      allow read, write: if isStaff();
+    }
+  }
+}

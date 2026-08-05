@@ -1,0 +1,22 @@
+{
+  "app_name": "STA Ride",
+  "welcome": "Karibu STA Ride",
+  "login": "Ingia",
+  "register": "Jisajili",
+  "email": "Barua Pepe",
+  "password": "Nenosiri",
+  "phone": "Namba ya Simu",
+  "full_name": "Jina Kamili",
+  "gender": "Jinsia",
+  "male": "Mwanaume",
+  "female": "Mwanamke",
+  "request_ride": "Agiza Safari",
+  "searching_driver": "Tunatafuta dereva bora...",
+  "driver_arrived": "DEREVA WAKO AMEFIKA",
+  "trip_started": "SAFARI IMEANZA",
+  "emergency_sos": "MSAADA WA HARAKA",
+  "women_safe_ride": "Safari Salama kwa Wanawake",
+  "payment_method": "Njia ya Malipo",
+  "cancel_request": "GHAIRI MAOMBI",
+  "emergency_alert": "Taarifa ya dharura imetumwa na kupiga 112..."
+}

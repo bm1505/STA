@@ -1,0 +1,22 @@
+{
+  "app_name": "STA Ride",
+  "welcome": "Welcome to STA Ride",
+  "login": "Login",
+  "register": "Register",
+  "email": "Email Address",
+  "password": "Password",
+  "phone": "Phone Number",
+  "full_name": "Full Name",
+  "gender": "Gender",
+  "male": "Male",
+  "female": "Female",
+  "request_ride": "Request Ride",
+  "searching_driver": "Searching for the best driver...",
+  "driver_arrived": "YOUR DRIVER HAS ARRIVED",
+  "trip_started": "TRIP STARTED",
+  "emergency_sos": "EMERGENCY SOS",
+  "women_safe_ride": "Women Safe Ride",
+  "payment_method": "Payment Method",
+  "cancel_request": "CANCEL REQUEST",
+  "emergency_alert": "Emergency Alert Sent & Calling 112..."
+}

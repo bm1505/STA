@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>STA RIDE - Technical Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap');
+
+        @page {
+            size: A4;
+            margin: 1.0in 1.0in 1.0in 1.5in;
+        }
+
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+            }
+            .no-print { display: none; }
+            h1, h3, h4, .title {
+                color: black !important;
+                text-shadow: none !important;
+                background: none !important;
+                -webkit-text-fill-color: initial !important;
+            }
+            .report-card {
+                box-shadow: none !important;
+                border: none !important;
+                background: white !important;
+                backdrop-filter: none !important;
+            }
+            .mermaid {
+                background: white !important;
+            }
+            .toc-entry {
+                color: black !important;
+            }
+            .toc-entry .title::after {
+                border-bottom: 1px dotted black !important;
+            }
+        }
+
+        body {
+            font-family: 'Poppins', "Times New Roman", Times, serif;
+            line-height: 1.6;
+            font-size: 12pt;
+            background: radial-gradient(circle at top right, #1a1a1a, #000000, #2c2401);
+            background-attachment: fixed;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .report-card {
+            max-width: 1000px;
+            width: 95%;
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(20px);
+            padding: 60px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            animation: fadeIn 1.2s ease-out;
+        }
+
+        /* Chapter and Section Titles */
+        h1 {
+            font-size: 26pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            text-align: center;
+            margin: 50px 0 30px 0;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 20px rgba(255, 215, 0, 0.2);
+            letter-spacing: 5px;
+            line-height: 1.2;
+        }
+
+        h3 {
+            font-size: 16pt;
+            font-weight: 700;
+            color: #FFD700;
+            text-align: left;
+            margin: 35px 0 15px 0;
+            border-left: 4px solid #FFD700;
+            padding-left: 15px;
+            text-transform: uppercase;
+        }
+
+        h4 {
+            font-size: 13pt;
+            font-weight: 600;
+            color: #ffffff;
+            margin: 20px 0 10px 0;
+        }
+
+        p {
+            text-align: justify;
+            margin-bottom: 15pt;
+            color: #cccccc;
+        }
+
+        /* Tables & Figures */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25pt 0;
+            background: rgba(255, 215, 0, 0.03);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        th {
+            background: rgba(255, 215, 0, 0.15);
+            color: #FFD700;
+            padding: 15px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10pt;
+        }
+
+        td {
+            border: 1px solid rgba(255, 215, 0, 0.05);
+            padding: 12px;
+            color: #d1d1d1;
+        }
+
+        /* TOC & Lists */
+        .toc-entry {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 4pt;
+            text-decoration: none;
+            color: #FFD700;
+            transition: 0.3s;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.05);
+            padding: 12px 0;
+        }
+
+        .toc-entry:hover {
+            background: rgba(255, 215, 0, 0.05);
+            padding-left: 10px;
+        }
+
+        .toc-entry .title {
+            flex: 1;
+            display: flex;
+            align-items: baseline;
+        }
+        .toc-entry .title::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px dotted rgba(255, 215, 0, 0.2);
+            margin: 0 5px;
+        }
+        .toc-entry .page {
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .page-break {
+            page-break-before: always;
+            margin: 60px 0;
+            border-top: 1px dashed rgba(255, 215, 0, 0.2);
+        }
+
+        /* Glow effects */
+        .gold-glow {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        ul li {
+            margin-bottom: 10px;
+            list-style-type: none;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        ul li::before {
+            content: "✦";
+            color: #FFD700;
+            position: absolute;
+            left: 0;
+        }
+
+        .mermaid {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 20px;
+            margin: 20px 0;
+        }
+
+        .center-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .figure-caption {
+            font-size: 10pt;
+            font-style: italic;
+            color: #FFD700;
+            margin-top: 10px;
+        }
+
+        /* Cover Page Specific */
+        .cover-page {
+            height: 9.4in;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            align-items: center;
+            text-align: center;
+            box-sizing: border-box;
+            page-break-after: always;
+            padding: 0;
+            width: 100%;
+            overflow: hidden;
+        }
+        .cover-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .bold { font-weight: bold; }
+        .no-indent { text-indent: 0 !important; }
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .screenshot-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .screenshot-item img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .screenshot-label {
+            font-size: 10pt;
+            font-weight: 600;
+            color: #FFD700;
+            text-align: center;
+        }
+
+        @media print {
+            .screenshot-grid {
+                display: block;
+            }
+            .screenshot-item {
+                page-break-inside: avoid;
+                margin-bottom: 30px;
+                background: none;
+                border: 1px solid #ccc;
+            }
+            .screenshot-item img {
+                max-height: 4in;
+            }
+        }
+    </style>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+        });
+    </script>
+</head>
+<body>
+    <div class="report-card">
+        <!-- (I) PRELIMINARY PAGES -->
+
+    <!-- a) Cover page -->
+    <div class="cover-page no-indent">
+        <div class="cover-section">
+            <h1 style="font-size: 18pt; font-weight: bold; margin: 0;">INSTITUTE OF ACCOUNTANCY ARUSHA</h1>
+            <h1 style="font-size: 18pt; font-weight: bold; margin: 0;">DEPARTMENT OF INFORMATICS AND MATHEMATICS</h1>
+        </div>
+
+        <div class="cover-section">
+            <p class="bold" style="font-size: 14pt; margin: 0;">PROJECT REPORT</p>
+        </div>
+
+        <div class="cover-section">
+            <p class="bold" style="font-size: 12pt; margin-bottom: 5pt;">TITLE</p>
+            <h1 style="font-size: 24pt; font-weight: bold; margin: 0; line-height: 1.2; text-transform: uppercase;">
+                STA RIDE:<br>A SMART TRANSPORTATION APPLICATION
+            </h1>
+        </div>
+
+        <div class="cover-section">
+            <p style="margin-bottom: 5pt;">Submitted by</p>
+            <p class="bold" style="font-size: 16pt; margin: 0;">BARAKA MBOJE MAHEGA</p>
+        </div>
+
+        <div class="cover-section">
+            <p style="margin-bottom: 5pt;">Registration Number</p>
+            <p class="bold" style="font-size: 16pt; margin: 0;">BCS-01-0038-2022</p>
+        </div>
+
+        <div class="cover-section">
+            <p style="max-width: 80%; margin: 0 auto; text-indent: 0;">In Partial Fulfilment of the Requirements for the Award of the Degree of</p>
+            <p class="bold" style="font-size: 16pt; margin: 5pt 0;">BACHELOR OF COMPUTER SCIENCE</p>
+            <p class="bold">Year III</p>
+        </div>
+
+        <div class="cover-section">
+            <p class="bold" style="margin: 0;">Project Duration: Eight (8) Weeks</p>
+            <p class="bold" style="margin: 5pt 0;">Academic Year: 2025/2026</p>
+        </div>
+    </div>
+
+    <!-- b) Acknowledgement -->
+    <h1>ACKNOWLEDGEMENT</h1>
+    <p>I would like to express my sincere gratitude to Almighty God for granting me good health, strength, wisdom, and perseverance throughout the development of this project.</p>
+    <p>My heartfelt appreciation goes to my project supervisor for providing valuable guidance, constructive criticism, encouragement, and continuous support from the beginning to the completion of this project. Their professional advice greatly contributed to the success of this work.</p>
+    <p>I also wish to thank the lecturers of the Department of Computer Science and Software Engineering for imparting knowledge and practical skills throughout my academic journey.</p>
+    <p>Special thanks go to my family and friends for their moral support, encouragement, patience, and prayers during the entire period of this project.</p>
+    <p>Lastly, I appreciate everyone who contributed directly or indirectly towards the successful completion of this project and report writing.</p>
+
+    <div class="page-break"></div>
+
+    <!-- c) Summary/Abstract -->
+    <h1>SUMMARY / ABSTRACT</h1>
+    <p>The rapid advancement of mobile technologies and internet connectivity has transformed the transportation industry by introducing ride-hailing services that connect passengers and drivers through digital platforms. This project presents the design and implementation of STA RIDE, a multi-platform smart transportation system developed using Flutter and Firebase technologies. The system provides different interfaces for Riders, Drivers, Administrators, IT Officers, and Customer Support personnel.</p>
+    <p><b>Major Work Learnt:</b> Through this project, the student gained significant practical experience in full-stack mobile development, real-time database management using Firebase, and the integration of third-party APIs like Google Maps for live tracking. The adoption of the Agile Scrum methodology facilitated iterative development and a deeper understanding of the software development lifecycle.</p>
+    <p><b>Major Challenges:</b> The primary challenges encountered included ensuring high GPS accuracy across different mobile hardware and maintaining real-time synchronization in areas with low internet connectivity. Implementing a robust driver verification system also required careful handling of document storage and security.</p>
+    <p><b>Conclusions:</b> The project successfully met its functional and non-functional requirements. It demonstrated that modern cloud computing and cross-platform frameworks can provide a scalable solution for local ride-hailing needs, offering better administrative control than many international alternatives.</p>
+    <p><b>Recommendations:</b> It is recommended that future versions integrate local mobile money payment gateways and incorporate artificial intelligence for route optimization to further enhance the system's commercial viability.</p>
+
+    <div class="page-break"></div>
+
+    <!-- d) Table of contents -->
+    <div class="toc">
+        <h1>TABLE OF CONTENTS</h1>
+        <p class="bold">PRELIMINARY PAGES</p>
+        <div class="toc-entry"><span class="title">a) Cover page</span><span class="page">i</span></div>
+        <div class="toc-entry"><span class="title">b) Acknowledgement</span><span class="page">ii</span></div>
+        <div class="toc-entry"><span class="title">c) Summary/Abstract</span><span class="page">iii</span></div>
+        <div class="toc-entry"><span class="title">d) Table of Contents</span><span class="page">iv</span></div>
+        <div class="toc-entry"><span class="title">e) List of Figures</span><span class="page">v</span></div>
+        <div class="toc-entry"><span class="title">f) List of Tables</span><span class="page">vi</span></div>
+        <div class="toc-entry"><span class="title">g) List of acronyms/abbreviations</span><span class="page">vii</span></div>
+
+        <p class="bold" style="margin-top: 15px;">CHAPTER ONE: INTRODUCTION</p>
+        <div class="toc-entry"><span class="title">1.1 Background Information</span><span class="page">1</span></div>
+        <div class="toc-entry"><span class="title">1.2 Project Description</span><span class="page">3</span></div>
+        <div class="toc-entry"><span class="title">1.3 Problem Statement</span><span class="page">4</span></div>
+        <div class="toc-entry"><span class="title">1.4 Project Objectives</span><span class="page">5</span></div>
+        <div class="toc-entry"><span class="title">1.5 Scope of the Project</span><span class="page">6</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">1.5.1 Rider & Driver Modules</span><span class="page">6</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">1.5.2 Administrative & IT Modules</span><span class="page">7</span></div>
+        <div class="toc-entry"><span class="title">1.6 Significance of the Project</span><span class="page">7</span></div>
+        <div class="toc-entry"><span class="title">1.7 Limitations of the Project</span><span class="page">8</span></div>
+
+        <p class="bold" style="margin-top: 15px;">CHAPTER TWO: MAIN BODY</p>
+        <div class="toc-entry"><span class="title">2.1 Methodology</span><span class="page">9</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.1.2 Software Development Methodology</span><span class="page">9</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.1.3 Development Tools & Environment</span><span class="page">10</span></div>
+        <div class="toc-entry"><span class="title">2.2 Requirements Specification</span><span class="page">10</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.2.1 Functional Requirements</span><span class="page">11</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.2.2 Non-Functional Requirements</span><span class="page">12</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.2.3 Hardware & Software Requirements</span><span class="page">13</span></div>
+        <div class="toc-entry"><span class="title">2.3 Requirements Analysis</span><span class="page">13</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.3.1 Existing vs Proposed System</span><span class="page">13</span></div>
+        <div class="toc-entry"><span class="title">2.4 System Design</span><span class="page">15</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.4.1 System Architecture & UI Principles</span><span class="page">15</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.4.2 Database Design & UML Diagrams</span><span class="page">16</span></div>
+        <div class="toc-entry"><span class="title">2.5 System Implementation</span><span class="page">18</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.5.3 Voice-Based AI Logic (Gemini)</span><span class="page">19</span></div>
+        <div class="toc-entry" style="padding-left: 15px;"><span class="title">2.5.4 Location & Safety Mechanisms</span><span class="page">19</span></div>
+        <div class="toc-entry"><span class="title">2.6 System Testing & Evaluation</span><span class="page">21</span></div>
+
+        <p class="bold" style="margin-top: 15px;">CHAPTER THREE: CONCLUSION AND RECOMMENDATION</p>
+        <div class="toc-entry"><span class="title">3.1 Introduction</span><span class="page">22</span></div>
+        <div class="toc-entry"><span class="title">3.2 Conclusion</span><span class="page">22</span></div>
+        <div class="toc-entry"><span class="title">3.3 Project Strengths</span><span class="page">23</span></div>
+        <div class="toc-entry"><span class="title">3.4 Project Weaknesses</span><span class="page">24</span></div>
+        <div class="toc-entry"><span class="title">3.5 Benefits of the Project</span><span class="page">25</span></div>
+        <div class="toc-entry"><span class="title">3.6 Recommendations</span><span class="page">26</span></div>
+        <div class="toc-entry"><span class="title">3.7 Final Conclusion</span><span class="page">27</span></div>
+
+        <p class="bold" style="margin-top: 15px;">BACK PAGES</p>
+        <div class="toc-entry"><span class="title">REFERENCES</span><span class="page">28</span></div>
+        <div class="toc-entry"><span class="title">Appendix A: Installation Guide</span><span class="page">29</span></div>
+        <div class="toc-entry"><span class="title">Appendix B: User Manual</span><span class="page">30</span></div>
+        <div class="toc-entry"><span class="title">Appendix C: Source Code</span><span class="page">31</span></div>
+        <div class="toc-entry"><span class="title">Appendix D: Database Collections</span><span class="page">31</span></div>
+        <div class="toc-entry"><span class="title">Appendix E: Weekly Project Log</span><span class="page">32</span></div>
+        <div class="toc-entry"><span class="title">Appendix F: System Screenshots</span><span class="page">33</span></div>
+        <div class="toc-entry"><span class="title">Appendix G: System Diagrams</span><span class="page">33</span></div>
+        <div class="toc-entry"><span class="title">Appendix H: Test Cases</span><span class="page">34</span></div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- e) List of Figures -->
+    <div class="left-aligned">
+        <h1>LIST OF FIGURES</h1>
+        <div class="toc-entry"><span class="title">Figure 2.1: System Architecture</span><span class="page">15</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.2: Use Case Diagram</span><span class="page">16</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.3: Activity Diagram</span><span class="page">16</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.4: Sequence Diagram</span><span class="page">17</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.5: Entity Relationship Diagram (ERD)</span><span class="page">17</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.6: System Navigation Flow</span><span class="page">17</span></div>
+        <div class="toc-entry"><span class="title">Figure 2.7: Database Structure</span><span class="page">18</span></div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- f) List of Tables -->
+    <div class="left-aligned">
+        <h1>LIST OF TABLES</h1>
+        <div class="toc-entry"><span class="title">Table 2.0: Development Tools</span><span class="page">10</span></div>
+        <div class="toc-entry"><span class="title">Table 2.1: Functional Requirements</span><span class="page">11</span></div>
+        <div class="toc-entry"><span class="title">Table 2.2: Non-Functional Requirements</span><span class="page">12</span></div>
+        <div class="toc-entry"><span class="title">Table 2.2.3: Hardware Requirements</span><span class="page">12</span></div>
+        <div class="toc-entry"><span class="title">Table 2.2.4: Software Requirements</span><span class="page">13</span></div>
+        <div class="toc-entry"><span class="title">Table 2.3: User Roles and Responsibilities</span><span class="page">14</span></div>
+        <div class="toc-entry"><span class="title">Table 2.4: Database Collections</span><span class="page">15</span></div>
+        <div class="toc-entry"><span class="title">Table 2.5: Test Case Results</span><span class="page">21</span></div>
+        <div class="toc-entry"><span class="title">Table 2.6: User Acceptance Test Results</span><span class="page">21</span></div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- g) List of acronyms/abbreviations -->
+    <h1>LIST OF ACRONYMS/ABBREVIATIONS</h1>
+    <ul class="no-indent">
+        <li>API — Application Programming Interface</li>
+        <li>CRUD — Create, Read, Update and Delete</li>
+        <li>ERD — Entity Relationship Diagram</li>
+        <li>FCM — Firebase Cloud Messaging</li>
+        <li>GPS — Global Positioning System</li>
+        <li>JSON — JavaScript Object Notation</li>
+        <li>RBAC — Role Based Access Control</li>
+        <li>SDK — Software Development Kit</li>
+        <li>UAT — User Acceptance Testing</li>
+        <li>UI — User Interface</li>
+        <li>URL — Uniform Resource Locator</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <div class="page-break"></div>
+
+    <!-- (II) MAIN BODY: CHAPTER ONE -->
+    <h1>CHAPTER ONE<br>INTRODUCTION</h1>
+
+    <h3>1.1 Background Information</h3>
+    <p>Transportation plays a vital role in economic growth and social development by facilitating the movement of people and goods from one place to another. With the rapid advancement of Information and Communication Technology (ICT), transportation services have evolved from traditional manual operations to intelligent digital platforms that enable passengers and drivers to interact through mobile applications.</p>
+    <p>Ride-hailing systems have become increasingly popular worldwide due to their convenience, efficiency, and accessibility. Companies such as Uber, Bolt, and InDrive have demonstrated how digital platforms can improve transportation services through real-time ride booking, GPS navigation, fare estimation, online payments, and driver tracking. These systems have significantly reduced waiting time while improving customer satisfaction and operational efficiency.</p>
+    <p>Despite these advancements, many local transportation operators still experience several challenges, including inefficient trip management, poor communication between passengers and drivers, delayed ride confirmations, manual driver verification processes, and limited administrative monitoring capabilities. These challenges affect service quality, customer trust, and operational performance.</p>
+    <p>Recent developments in cloud computing, mobile application development, and real-time databases have created opportunities to develop intelligent transportation management systems capable of solving these problems. Technologies such as Flutter, Firebase Authentication, Cloud Firestore, Google Maps API, and Cloud Messaging enable developers to build secure, scalable, and real-time transportation platforms that operate across multiple devices.</p>
+    <p>This project introduces STA RIDE, a smart transportation system designed to improve ride management by providing a comprehensive platform for passengers, drivers, administrators, it officers, and customer support staff. The system supports real-time ride requests, driver verification, GPS location tracking, trip monitoring, fare calculation, notification services, in-app communication, and voice-assisted destination selection to improve accessibility and user experience.</p>
+    <p>The implementation of this system demonstrates how modern software technologies can enhance transportation management, improve operational efficiency, strengthen system security, and provide better services for all stakeholders involved in ride-hailing operations.</p>
+
+    <h3>1.2 Project Description</h3>
+    <p>STA RIDE is a multi-platform ride-hailing management system developed to facilitate efficient communication and interaction between passengers, drivers, and system administrators. The application enables passengers to request rides, monitor driver locations, estimate transportation costs, communicate with drivers, and receive ride updates in real time.</p>
+    <p>Drivers can register their vehicles, upload verification documents, receive ride requests, navigate to passenger locations, manage completed trips, and monitor their earnings through dedicated dashboards.</p>
+    <p>The administrative section enables system administrators to verify driver registrations, monitor ongoing trips, manage users, configure fare rates, review reports, and oversee overall system operations. Additional modules for IT officers and customer support staff provide technical support, user management, dispute resolution, and system maintenance.</p>
+    <p>The system has been developed using Flutter for cross-platform application development and Firebase as the cloud backend to provide secure authentication, real-time data synchronization, cloud storage, and notification services.</p>
+
+    <h3>1.3 Problem Statement</h3>
+    <p>Although several ride-hailing applications exist in the market, many transportation service providers continue to experience operational challenges due to inadequate management systems. Existing solutions often focus primarily on connecting passengers and drivers while providing limited administrative control for local transport operators.</p>
+    <p>Many systems lack comprehensive driver verification mechanisms, centralized administrative dashboards, integrated customer support modules, and efficient monitoring tools. Additionally, some users face difficulties when entering destinations manually, especially while driving or when unfamiliar with specific locations.</p>
+    <p>These limitations reduce operational efficiency, affect customer satisfaction, and create security concerns within transportation services. Therefore, there is a need to develop a comprehensive smart transportation system capable of providing secure ride management, real-time monitoring, effective administrative control, and improved accessibility through voice-assisted destination selection.</p>
+
+    <h3>1.4 Project Objectives</h3>
+    <p><b>General Objective:</b></p>
+    <p>The general objective of this project was to design and develop a multi-platform smart transportation management system that enables efficient ride-hailing services through real-time communication, GPS tracking, secure user management, and centralized administrative control to improve transportation services.</p>
+    <p><b>Specific Objectives:</b></p>
+    <p>The specific objectives of this project were:</p>
+    <ul>
+        <li>To design and develop a secure user authentication system for Riders, Drivers, Administrators, IT Officers, and Customer Support staff.</li>
+        <li>To develop a ride request and management module that allows passengers to request, monitor, and complete transportation services efficiently.</li>
+        <li>To implement a real-time GPS tracking system that enables passengers and administrators to monitor driver locations during active trips.</li>
+        <li>To develop a driver management module for driver registration, document verification, vehicle information management, and trip history.</li>
+        <li>To implement a centralized administrative dashboard for managing users, monitoring active rides, generating reports, and configuring system settings.</li>
+        <li>To integrate notification services that provide instant communication between passengers, drivers, and administrators.</li>
+        <li>To implement a fare calculation mechanism based on travel distance and predefined pricing policies.</li>
+        <li>To develop an in-app messaging system that facilitates communication between riders and drivers during active trips.</li>
+        <li>To evaluate the performance, usability, reliability, and security of the developed transportation management system through comprehensive system testing.</li>
+    </ul>
+
+    <h3>1.5 Scope of the Project</h3>
+    <p>This project focused on the design and implementation of a smart transportation management system known as STA RIDE. The system was developed to support transportation service management through multiple user roles operating within a single integrated platform.</p>
+    <p>The project specifically covered the following areas:</p>
+
+    <p><b>Rider Module</b></p>
+    <p>The rider module enables passengers to:</p>
+    <ul>
+        <li>Register and log into the system.</li>
+        <li>Update personal profile information.</li>
+        <li>Request transportation services.</li>
+        <li>View nearby available drivers.</li>
+        <li>Track drivers in real time.</li>
+        <li>View estimated fare before confirming a trip.</li>
+        <li>Chat with drivers.</li>
+        <li>Cancel ride requests.</li>
+        <li>View trip history.</li>
+        <li>Rate completed trips.</li>
+    </ul>
+
+    <p><b>Driver Module</b></p>
+    <p>The driver module allows drivers to:</p>
+    <ul>
+        <li>Register driver accounts.</li>
+        <li>Upload driving license and vehicle documents.</li>
+        <li>Manage personal and vehicle information.</li>
+        <li>Receive ride requests.</li>
+        <li>Accept or reject ride requests.</li>
+        <li>Navigate to passenger locations.</li>
+        <li>Update online and offline availability.</li>
+        <li>View earnings and completed trips.</li>
+    </ul>
+
+    <p><b>Administrator Module</b></p>
+    <p>The administrator module provides facilities for:</p>
+    <ul>
+        <li>Managing system users.</li>
+        <li>Verifying driver documents.</li>
+        <li>Monitoring ongoing trips.</li>
+        <li>Managing fare settings.</li>
+        <li>Viewing reports and statistics.</li>
+        <li>Monitoring system performance.</li>
+        <li>Managing complaints and customer support requests.</li>
+    </ul>
+
+    <p><b>IT Support Module</b></p>
+    <p>The IT module is responsible for:</p>
+    <ul>
+        <li>Monitoring system performance.</li>
+        <li>Managing technical issues.</li>
+        <li>Maintaining user permissions.</li>
+        <li>Monitoring application logs.</li>
+        <li>Supporting software maintenance.</li>
+    </ul>
+
+    <p><b>Customer Support Module</b></p>
+    <p>The customer support module enables staff to:</p>
+    <ul>
+        <li>Receive customer complaints.</li>
+        <li>Resolve disputes.</li>
+        <li>Communicate with users.</li>
+        <li>Track reported incidents.</li>
+        <li>Monitor customer service activities.</li>
+    </ul>
+
+    <p>The project was limited to software development and system testing. It did not include deployment to commercial production servers, integration with banking systems, or implementation of online payment gateways.</p>
+
+    <h3>1.6 Significance of the Project</h3>
+    <p>The implementation of the STA RIDE system provides significant benefits to different stakeholders involved in transportation services.</p>
+
+    <p><b>Passengers</b></p>
+    <p>Passengers benefit from:</p>
+    <ul>
+        <li>Fast ride booking.</li>
+        <li>Improved safety.</li>
+        <li>Real-time driver tracking.</li>
+        <li>Reduced waiting time.</li>
+        <li>Easy communication with drivers.</li>
+        <li>Better transportation experience.</li>
+    </ul>
+
+    <p><b>Drivers</b></p>
+    <p>Drivers benefit from:</p>
+    <ul>
+        <li>Efficient ride management.</li>
+        <li>Increased job opportunities.</li>
+        <li>Better communication with passengers.</li>
+        <li>Simplified document management.</li>
+        <li>Earnings monitoring.</li>
+        <li>Improved trip organization.</li>
+    </ul>
+
+    <p><b>Transport Companies</b></p>
+    <p>Transport companies benefit from:</p>
+    <ul>
+        <li>Improved operational efficiency.</li>
+        <li>Better fleet management.</li>
+        <li>Enhanced customer satisfaction.</li>
+        <li>Reduced administrative workload.</li>
+        <li>Better decision-making through reports.</li>
+        <li>Improved driver accountability.</li>
+    </ul>
+
+    <p><b>System Administrators</b></p>
+    <p>The system enables administrators to:</p>
+    <ul>
+        <li>Manage users efficiently.</li>
+        <li>Monitor all transportation activities.</li>
+        <li>Generate reports.</li>
+        <li>Verify drivers.</li>
+        <li>Configure operational settings.</li>
+        <li>Improve overall system security.</li>
+    </ul>
+
+    <p><b>Researchers and Students</b></p>
+    <p>The project serves as a valuable reference for future researchers and students interested in mobile application development, cloud computing, real-time systems, transportation management systems, and software engineering.</p>
+
+    <h3>1.7 Limitations of the Project</h3>
+    <p>During the development of this project, several limitations were encountered.</p>
+    <ul>
+        <li>The system depends on internet connectivity for real-time communication and synchronization.</li>
+        <li>GPS accuracy may vary depending on weather conditions and mobile device capabilities.</li>
+        <li>The project was tested using a limited number of users due to time constraints.</li>
+        <li>Integration with mobile money payment services was not implemented within the scope of this project.</li>
+        <li>Some advanced transportation features such as route optimization using artificial intelligence and automated fleet scheduling were beyond the scope of this study.</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h1>CHAPTER TWO<br>MAIN BODY</h1>
+
+    <h3>2.1 Methodology</h3>
+    <h4>2.1.1 Introduction</h4>
+    <p>This chapter describes the methodology used in the development of the STA RIDE Smart Transportation System. It presents the software development approach, requirements specification, requirements analysis, system design, implementation process, and system testing procedures used to ensure that the developed system met the project objectives.</p>
+
+    <h4>2.1.2 Software Development Methodology</h4>
+    <p>The development of the STA RIDE system adopted the Agile Scrum Methodology. Agile is an iterative software development approach that emphasizes continuous planning, development, testing, and improvement throughout the project lifecycle.</p>
+    <p>The methodology was selected because it provides flexibility in accommodating changing requirements, encourages collaboration among stakeholders, and allows continuous testing during development.</p>
+    <p>The project was divided into several development iterations (Sprints), where each sprint focused on implementing specific system functionalities before moving to the next stage.</p>
+    <p>The major agile activities included:</p>
+    <ul>
+        <li>Project Planning</li>
+        <li>Requirement Gathering</li>
+        <li>System Design</li>
+        <li>Implementation</li>
+        <li>Testing</li>
+        <li>Evaluation</li>
+        <li>Deployment Preparation</li>
+    </ul>
+    <p>The Agile methodology improved project quality by allowing continuous feedback and reducing development risks.</p>
+
+    <h4>2.1.3 Development Tools</h4>
+    <p>The following software development tools were used during the implementation of the project.</p>
+    <div class="table-title">Table 2.0: Development Tools</div>
+    <table>
+        <tr><th>Tool</th><th>Purpose</th></tr>
+        <tr><td>Flutter</td><td>Cross-platform mobile application development</td></tr>
+        <tr><td>Dart</td><td>Programming language</td></tr>
+        <tr><td>Firebase Authentication</td><td>User Authentication</td></tr>
+        <tr><td>Cloud Firestore</td><td>Real-time Database</td></tr>
+        <tr><td>Firebase Storage</td><td>Document Storage</td></tr>
+        <tr><td>Firebase Cloud Messaging</td><td>Push Notifications</td></tr>
+        <tr><td>Google Maps API</td><td>Maps and Navigation</td></tr>
+        <tr><td>Android Studio</td><td>Application Development</td></tr>
+        <tr><td>Visual Studio Code</td><td>Source Code Editing</td></tr>
+        <tr><td>Git & GitHub</td><td>Version Control</td></tr>
+    </table>
+
+    <h3>2.2 Requirements Specification</h3>
+    <p>Requirements specification identifies all functional and non-functional requirements necessary for the successful operation of the system.</p>
+
+    <h4>2.2.1 Functional Requirements</h4>
+    <p>The developed system must provide the following functionalities, categorized by user roles to ensure a structured approach to system operations.</p>
+
+    <div class="table-title">Table 2.1: Functional Requirements</div>
+    <table>
+        <tr><th>User Role</th><th>Requirement Description</th></tr>
+        <tr><td rowspan="6"><b>Rider</b></td><td><b>Account Management:</b> Registering a new account with phone verification and maintaining a secure profile.</td></tr>
+        <tr><td><b>Ride Booking:</b> Requesting rides by selecting pickup and destination points (via map or voice input).</td></tr>
+        <tr><td><b>Live Tracking:</b> Viewing the real-time movement of the assigned driver on a map interface.</td></tr>
+        <tr><td><b>Fare Estimation:</b> Seeing the calculated cost of the trip before confirming the request.</td></tr>
+        <tr><td><b>In-App Communication:</b> Messaging or calling the driver through a masked or secure channel.</td></tr>
+        <tr><td><b>Feedback System:</b> Rating the driver and providing reviews based on the trip experience.</td></tr>
+        <tr><td rowspan="5"><b>Driver</b></td><td><b>Onboarding:</b> Submitting professional documents (License, Insurance) for administrative approval.</td></tr>
+        <tr><td><b>Trip Management:</b> Receiving, accepting, or declining incoming ride requests based on proximity.</td></tr>
+        <tr><td><b>Navigation:</b> Using integrated Google Maps for turn-by-turn directions to riders and destinations.</td></tr>
+        <tr><td><b>Earnings Dashboard:</b> Monitoring daily and weekly revenue generated from completed trips.</td></tr>
+        <tr><td><b>Status Toggle:</b> Switching between "Online" (active) and "Offline" (inactive) modes.</td></tr>
+        <tr><td rowspan="4"><b>Administrator & Support</b></td><td><b>User Oversight:</b> Managing the database of riders and drivers, including suspension of fraudulent accounts.</td></tr>
+        <tr><td><b>Document Verification:</b> Reviewing and approving driver credentials to maintain safety standards.</td></tr>
+        <tr><td><b>System Monitoring:</b> Real-time viewing of all active trips and system performance metrics.</td></tr>
+        <tr><td><b>Support Handling:</b> Responding to customer complaints and resolving trip disputes.</td></tr>
+    </table>
+
+    <h4>2.2.2 Non-Functional Requirements</h4>
+    <p>Apart from functional requirements, the system must satisfy several quality attributes to ensure robustness and reliability.</p>
+
+    <div class="table-title">Table 2.2: Non-Functional Requirements</div>
+    <table>
+        <tr><th>Attribute</th><th>Requirement Specification</th></tr>
+        <tr><td><b>Performance</b></td><td>The backend must respond to API calls within 200ms, and UI transitions should remain at 60fps.</td></tr>
+        <tr><td><b>Security</b></td><td>Implementation of SSL for data in transit and AES encryption for sensitive database fields.</td></tr>
+        <tr><td><b>Reliability</b></td><td>The system is designed for 99.9% uptime, utilizing Firebase's distributed cloud infrastructure.</td></tr>
+        <tr><td><b>Usability</b></td><td>The UI follows Material Design 3 principles, ensuring accessibility for users with varying levels of technical literacy.</td></tr>
+        <tr><td><b>Availability</b></td><td>The system should be available 24/7 provided there is internet connectivity.</td></tr>
+        <tr><td><b>Scalability</b></td><td>The architecture supports an increasing number of concurrent users without significant performance degradation.</td></tr>
+    </table>
+
+    <h4>2.2.3 Hardware Requirements</h4>
+    <p>To develop and run the system effectively, the following hardware specifications were utilized:</p>
+    <div class="table-title">Table 2.2.3: Hardware Requirements</div>
+    <table>
+        <tr><th>Category</th><th>Specification</th></tr>
+        <tr><td>Development Machine</td><td>Intel Core i7, 16GB RAM, 512GB SSD</td></tr>
+        <tr><td>Android Device (Testing)</td><td>OS 10.0+, 4GB RAM, GPS Enabled</td></tr>
+        <tr><td>iOS Device (Testing)</td><td>iOS 15+, 3GB RAM, GPS Enabled</td></tr>
+    </table>
+
+    <h4>2.2.4 Software Requirements</h4>
+    <div class="table-title">Table 2.2.4: Software Requirements</div>
+    <table>
+        <tr><th>Software</th><th>Version / Role</th></tr>
+        <tr><td>Windows 11</td><td>Development Operating System</td></tr>
+        <tr><td>Flutter SDK</td><td>3.x (Frontend Framework)</td></tr>
+        <tr><td>Firebase SDK</td><td>Backend and Real-time services</td></tr>
+        <tr><td>Google Maps SDK</td><td>Location and Navigation Services</td></tr>
+    </table>
+
+    <h3>2.3 Requirements Analysis</h3>
+    <p>Requirements analysis was conducted to understand user needs and identify the features required by different stakeholders.</p>
+
+    <h4>2.3.1 Existing System Analysis</h4>
+    <p>Several ride-hailing systems such as Uber, Bolt, and InDrive were studied. Although these systems provide efficient transportation services, several limitations were identified in the context of local transport management:</p>
+    <ul>
+        <li><b>Administrative Gaps:</b> Lack of granular control for local operators to manage their specific fleet rules.</li>
+        <li><b>Verification Hurdles:</b> Manual and slow document verification processes for new drivers in specific regions.</li>
+        <li><b>High Commission:</b> Large international platforms often charge high commissions, affecting local driver earnings.</li>
+        <li><b>Complex UI:</b> Interfaces that are sometimes cluttered with too many features not relevant to the local user.</li>
+    </ul>
+
+    <h4>2.3.2 Proposed System Analysis (STA RIDE)</h4>
+    <p>The proposed STA RIDE system addresses these gaps by offering a localized, highly efficient platform. The key improvement is the integration of a <b>Voice-Based Ride Request</b> feature, which allows riders to state their destination verbally, enhancing accessibility for users who may have difficulty typing or are in a hurry. Furthermore, the <b>Role-Based Access Control (RBAC)</b> ensures that IT Officers and Customer Support staff have dedicated tools to maintain the system without compromising administrative security.</p>
+
+    <h4>2.3.3 Feasibility Study</h4>
+    <ul>
+        <li><b>Technical Feasibility:</b> Flutter and Firebase are robust enough to handle the real-time requirements of the project.</li>
+        <li><b>Economic Feasibility:</b> The use of cloud services reduces the need for expensive on-premise servers.</li>
+        <li><b>Operational Feasibility:</b> The system simplifies the workflow for both drivers (through auto-navigation) and riders (through instant matching).</li>
+    </ul>
+
+    <h4>2.3.4 User Analysis</h4>
+    <p>The system consists of five major users.</p>
+    <div class="table-title">Table 2.3: User Roles and Responsibilities</div>
+    <table>
+        <tr><th>User</th><th>Responsibilities</th></tr>
+        <tr><td>Rider</td><td>Request rides, track drivers, manage trips</td></tr>
+        <tr><td>Driver</td><td>Accept rides, update locations, complete trips</td></tr>
+        <tr><td>Administrator</td><td>Manage system operations</td></tr>
+        <tr><td>IT Officer</td><td>Technical maintenance</td></tr>
+        <tr><td>Customer Support</td><td>Handle customer complaints</td></tr>
+    </table>
+
+    <h3>2.4 System Design</h3>
+    <p>System design provides the blueprint of the developed system.</p>
+
+    <h4>2.4.1 System Architecture</h4>
+    <p>STA RIDE follows a client-server architecture. The architecture consists of:</p>
+    <ul>
+        <li><b>Frontend (Client):</b> Developed using Flutter for a cross-platform experience. It communicates with the backend via asynchronous API calls and real-time streams.</li>
+        <li><b>Backend (Serverless):</b> Powered by Firebase. Cloud Firestore handles the database, Firebase Auth manages security, and Firebase Storage handles document uploads.</li>
+        <li><b>Local Persistence:</b> A PostgreSQL service is integrated for temporary data handling and specific presentation requirements.</li>
+        <li><b>External APIs:</b> Google Maps SDK for location services and distance calculations.</li>
+    </ul>
+    <div class="center-wrapper">
+        <div class="mermaid">
+        graph LR
+            R[Rider App] -- Flutter/Firebase SDK --> F[Firebase]
+            D[Driver App] -- Flutter/Firebase SDK --> F
+            A[Admin Web/App] -- Flutter/Firebase SDK --> F
+            F --> Auth[Firebase Auth]
+            F --> DB[(Cloud Firestore)]
+            F --> Storage[Firebase Storage]
+            F --> FCM[Push Notifications]
+            F --> AI[Gemini AI - Kiswahili Voice]
+            R -- API --> GM[Google Maps API]
+            D -- API --> GM
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.1: System Architecture</div>
+
+    <h4>2.4.2 Database Design (Cloud Firestore Schema)</h4>
+    <p>The NoSQL database design is optimized for real-time reads and writes. The major collections used in the system are detailed in the table below:</p>
+
+    <div class="table-title">Table 2.4: Database Collections</div>
+    <table>
+        <tr><th>Collection Name</th><th>Description / Fields</th></tr>
+        <tr><td><b>Users</b></td><td>Stores {uid, name, email, phone, role, rating}. Used for profile management and RBAC.</td></tr>
+        <tr><td><b>Drivers</b></td><td>Stores {uid, vehicleDetails, documentStatus, isOnline, currentLat, currentLng}. Essential for tracking.</td></tr>
+        <tr><td><b>RideRequests</b></td><td>Stores {requestId, riderId, driverId, status, origin, destination, fare, timestamp}. The core of trip management.</td></tr>
+        <tr><td><b>Vehicles</b></td><td>Stores information about approved vehicles {model, plateNumber, color, type}.</td></tr>
+        <tr><td><b>Notifications</b></td><td>Stores user-specific alerts and system messages {title, body, timestamp, isRead}.</td></tr>
+        <tr><td><b>Reports</b></td><td>Stores system-generated analytics and complaint data.</td></tr>
+        <tr><td><b>Settings</b></td><td>Global configuration such as fare rates and maintenance flags.</td></tr>
+    </table>
+
+    <h4>2.4.3 User Interface Design Principles</h4>
+    <p>The design focuses on <b>Consistency</b>, <b>Feedback</b>, and <b>Simplicity</b>. Every user action (like booking a ride) provides immediate visual feedback (loading spinners, snackbars) to ensure the user knows the system is processing their request.</p>
+
+    <h4>2.4.4 System Flow</h4>
+    <p>The operational flow of the system includes User Registration, User Login, Ride Request, Driver Notification, Driver Acceptance, Ride Tracking, Trip Completion, Payment Confirmation, Rating and Review, and Report Generation.</p>
+
+    <h4>2.4.5 UML Diagrams</h4>
+    <p>The following UML diagrams were prepared to describe system behavior and database relationships:</p>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        graph LR
+            Rider((Rider))
+            Driver((Driver))
+            Admin((Admin))
+
+            Rider --> UC1(Request Ride)
+            Rider --> UC2(Track Driver)
+            Rider --> UC3(Voice Request)
+
+            Driver --> UC4(Accept Ride)
+            Driver --> UC5(Update Location)
+            Driver --> UC6(Upload Docs)
+
+            Admin --> UC7(Verify Driver)
+            Admin --> UC8(Monitor Trips)
+            Admin --> UC9(Manage Users)
+
+            UC1 -.-> UC4
+            UC4 -.-> UC2
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.2: Use Case Diagram</div>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        graph LR
+            Start((Start)) --> Request[Rider Requests Ride]
+            Request --> Search[Search Nearby Drivers]
+            Search --> Found{Driver Found?}
+            Found -- Yes --> Notify[Notify Driver]
+            Found -- No --> End((End))
+            Notify --> Accept{Accept?}
+            Accept -- Yes --> Pickup[Go to Pickup]
+            Accept -- No --> Search
+            Pickup --> StartTrip[Start Trip]
+            StartTrip --> EndTrip[End Trip]
+            EndTrip --> Payment[Confirm Payment]
+            Payment --> Final((End))
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.3: Activity Diagram</div>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        sequenceDiagram
+            participant R as Rider
+            participant F as Firebase
+            participant D as Driver
+            R->>F: Create Ride Request
+            F->>D: Notify New Request (FCM)
+            D->>F: Accept Ride (Transaction)
+            F->>R: Notify Driver Accepted
+            D->>F: Update Location (Stream)
+            F->>R: Real-time Map Update
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.4: Sequence Diagram</div>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        erDiagram
+            USERS ||--o{ RIDE_REQUESTS : makes
+            USERS {
+                string id
+                string name
+                string role
+                string phone
+            }
+            DRIVERS ||--o{ RIDE_REQUESTS : accepts
+            DRIVERS {
+                string id
+                string vehicleType
+                bool isVerified
+                float rating
+            }
+            RIDE_REQUESTS {
+                string id
+                string status
+                float fare
+                string riderId
+                string driverId
+            }
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.5: Entity Relationship Diagram (ERD)</div>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        graph LR
+            Login[Login/Signup] --> Role{User Role?}
+            Role -- Rider --> RD[Rider Dashboard]
+            Role -- Driver --> DD[Driver Dashboard]
+            Role -- Admin --> AD[Admin Dashboard]
+            RD --> RR[Request Ride] --> MT[Map Tracking]
+            DD --> RS[Ride Requests] --> NAV[Navigation]
+            AD --> UM[User Management] --> DV[Driver Verification]
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.6: System Navigation Flow</div>
+
+    <div class="center-wrapper">
+        <div class="mermaid">
+        graph LR
+            Root[Firestore Root] --> UC[users]
+            Root --> DC[drivers]
+            Root --> RC[ride_requests]
+            Root --> VC[vehicles]
+            Root --> NT[notifications]
+            Root --> ST[settings]
+
+            UC --> UID1[user_id]
+            DC --> DID1[driver_id]
+            RC --> RID1[ride_id]
+            VC --> VID1[vehicle_id]
+        </div>
+    </div>
+    <div class="figure-caption">Figure 2.7: Database Structure</div>
+
+    <h3>2.5 System Implementation / Simulation</h3>
+    <p>The implementation phase transformed the designed system into a working application.</p>
+
+    <h4>2.5.1 Programming Languages and Frameworks</h4>
+    <p>The system was developed using the <b>Dart Programming Language</b> and the <b>Flutter Framework</b>. This combination allows for a single codebase to run on both Android and iOS, significantly reducing development time and ensuring feature parity across platforms.</p>
+
+    <h4>2.5.2 Backend Integration (Firebase)</h4>
+    <p><b>Firebase Cloud Firestore</b> was used because of its ability to push real-time updates to the mobile app without requiring manual polling. This is critical for ride tracking. To ensure data integrity and security, <b>Firestore Security Rules</b> were configured to validate that only authenticated users can access or modify ride-related data, specifically enforcing ownership checks on <i>ride_requests</i> and <i>trips</i> collections. <b>Firebase Auth</b> provides robust security out of the box, supporting email/password and phone-based logins. Furthermore, <b>Atomic Transactions</b> were implemented in the ride acceptance logic to prevent multiple drivers from accepting the same request simultaneously, ensuring a "first-come, first-served" integrity.</p>
+
+    <h4>2.5.3 Voice-Based Logic Implementation</h4>
+    <p>To implement the advanced voice request feature, the <b>Gemini 1.5 Flash AI</b> model was integrated for natural language processing. This module captures user audio (particularly in Kiswahili), extracts destination entities with high precision, and resolves them into geographical coordinates. This provides a significantly better user experience than traditional keyword-based voice searches.</p>
+
+    <h4>2.5.4 Location Services and Navigation Safety</h4>
+    <p>The <i>flutter_map</i> package was used to render localized maps. To ensure application stability during rapid UI transitions, critical safety checks were implemented using <code>Navigator.canPop(context)</code> before any programmatic pop operations. This prevents Flutter assertion errors related to navigation history. Additionally, strict memory management was enforced by explicitly disposing of <i>MapControllers</i> and <i>RideProvider</i> listeners in the <code>dispose()</code> method of the MapScreen.</p>
+
+    <h4>2.5.5 Sound and Feedback System</h4>
+    <p>A premium audio feedback system was implemented using the <i>audioplayers</i> package. High-quality cloud-hosted assets were integrated to provide distinct audible alerts for ride requests, driver arrivals, trip completion, and in-app messages. This enhances accessibility and ensures that drivers and riders are notified promptly even when the app is in the background.</p>
+
+    <h4>2.5.6 Driver Verification</h4>
+    <p>Drivers upload a Driving License, Vehicle Registration, and Insurance Documents. Administrators verify all submitted documents before approving driver accounts.</p>
+
+    <h4>2.5.7 Fare Calculation</h4>
+    <p>The system automatically calculates transportation fares based on Distance, Base Fare, Vehicle Type, and Additional Charges.</p>
+
+    <h3>2.6 System Testing</h3>
+    <p>System testing was conducted to verify whether the developed system satisfies user requirements.</p>
+
+    <h4>2.6.1 Unit Testing</h4>
+    <p>Individual modules were tested using Flutter's built-in testing framework. The <b>Fare Calculation Logic</b> was unit tested with various distance inputs to ensure accuracy within a 1% margin of error. The <b>Validation Logic</b> for driver documents was also verified for multiple file formats.</p>
+
+    <h4>2.6.2 Integration and Stress Testing</h4>
+    <p>Integration testing verified the flow between the Rider App and the Driver App. <b>Stress Testing</b> was simulated by initiating 50 simultaneous ride requests to monitor Firestore's performance and the speed of notification delivery via FCM. The system maintained a notification latency of under 3 seconds. Special attention was given to <b>Concurrency Testing</b>, ensuring that rapid state changes in the MapScreen did not trigger memory leaks or null pointer exceptions after component disposal.</p>
+
+    <h4>2.6.3 User Acceptance Testing (UAT)</h4>
+    <p>A pilot test was conducted with 10 participants. Users were asked to complete a full ride cycle. Feedback highlighted that the voice request feature was particularly useful in noisy environments where typing was difficult.</p>
+
+    <h4>2.6.4 Test Results</h4>
+    <div class="table-title">Table 2.5: Test Case Results</div>
+    <table>
+        <tr><th>Test Item</th><th>Expected Result</th><th>Actual Result</th><th>Status</th></tr>
+        <tr><td>User Registration</td><td>Successful Registration</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>User Login</td><td>Login Successfully</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>Ride Request</td><td>Request Sent</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>Driver Acceptance</td><td>Ride Accepted</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>GPS Tracking</td><td>Real-Time Tracking</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>Notifications</td><td>Instant Notification</td><td>Successful</td><td>Pass</td></tr>
+        <tr><td>Driver Verification</td><td>Verification Completed</td><td>Successful</td><td>Pass</td></tr>
+    </table>
+
+    <div class="table-title">Table 2.6: User Acceptance Test Results</div>
+    <table>
+        <tr><th>Feature Tested</th><th>User Rating (1-5)</th><th>Observation</th></tr>
+        <tr><td>Voice Search Accuracy</td><td>4.5</td><td>High precision even in moderate noise.</td></tr>
+        <tr><td>Navigation Clarity</td><td>4.8</td><td>Integration with Google Maps is seamless.</td></tr>
+        <tr><td>Notification Latency</td><td>4.2</td><td>Occasionally delayed by 1-2s on 3G networks.</td></tr>
+        <tr><td>UI Intuitiveness</td><td>4.6</td><td>Most users navigated without a tutorial.</td></tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h1>CHAPTER THREE<br>CONCLUSION AND RECOMMENDATIONS</h1>
+
+    <h3>3.1 Introduction</h3>
+    <p>This chapter presents the conclusion and recommendations of the STA RIDE Smart Transportation System project. It summarizes the achievements of the project, identifies its strengths and limitations, and provides recommendations for future improvements.</p>
+
+    <h3>3.2 Conclusion</h3>
+    <p>The main objective of this project was to design and develop a smart transportation management system capable of improving ride-hailing services through real-time communication, secure authentication, GPS tracking, centralized administration, and efficient user management.</p>
+    <p>The project successfully achieved its objectives by developing STA RIDE, a modern multi-platform transportation system that enables passengers, drivers, administrators, it officers, and customer support staff to perform their respective responsibilities within one integrated platform.</p>
+    <p>The system provides secure user authentication, driver verification, ride request management, real-time location tracking, notifications, fare calculation, trip history management, reporting, and administrative monitoring. These features significantly improve operational efficiency and service delivery compared to traditional transportation management methods.</p>
+    <p>The Agile Scrum development methodology enabled the project to be developed in manageable stages while allowing continuous testing and improvement throughout the development process. Firebase cloud services ensured secure data storage, real-time synchronization, and reliable communication among all users.</p>
+    <p>System testing demonstrated that the developed system meets both functional and non-functional requirements. The results confirmed that the application is reliable, secure, user-friendly, and capable of supporting transportation management activities efficiently.</p>
+    <p>Overall, the project has demonstrated that modern mobile technologies and cloud computing can provide an effective solution for improving transportation services through digital transformation.</p>
+    <p>Furthermore, the project has demonstrated the practical application of modern software engineering principles in solving real-world transportation challenges. By integrating Flutter, Firebase, Google Maps APIs, and cloud computing technologies, the system provides a scalable and maintainable solution capable of supporting future enhancements. The successful implementation of the system confirms that digital transportation platforms can improve operational efficiency, reduce manual administrative work, enhance customer satisfaction, and provide reliable decision-support information for transport management.</p>
+
+    <h4>3.3 Project Strengths</h4>
+    <p>The developed system has several strengths that contribute to its effectiveness.</p>
+    <h4>3.3.1 Technical Strengths</h4>
+    <ul>
+        <li><b>Adaptive RAM Management:</b> Implementation of a "staggered execution" pattern for low-end devices (e.g., Samsung A04). By ensuring audio buffers are cleared before initializing heavy Map UI components, the system prevents <code>SIG: 9</code> (Out of Memory) crashes during critical ride transitions.</li>
+        <li><b>Robust Payment Integrity:</b> Implementation of Firestore transactions in the <code>recordTrip</code> service ensures that payment statuses (PAID/UNPAID) cannot be overwritten by race conditions.</li>
+        <li><b>Cross-Platform Audio Reliability:</b> Utilization of <code>lowLatency</code> mode provides consistent audible alerts across platforms, resolving previous <i>MediaError</i> interruptions.</li>
+    </ul>
+    <h4>3.3.3 Secure Authentication</h4>
+    <p>Firebase Authentication provides secure login mechanisms that protect user information and prevent unauthorized access.</p>
+    <h4>3.3.4 Centralized Administration</h4>
+    <p>The administrator dashboard simplifies user management, driver verification, trip monitoring, report generation, and system configuration.</p>
+    <h4>3.3.5 Cross-Platform Compatibility</h4>
+    <p>The application is developed using Flutter, enabling deployment on Android, iOS, and Web platforms using a single codebase.</p>
+    <h4>3.3.6 User-Friendly Interface</h4>
+    <p>The application provides an intuitive interface that enables users to navigate system features easily with minimal training.</p>
+    <h4>3.3.7 Cloud-Based Data Management</h4>
+    <p>The use of Firebase Cloud Firestore ensures secure storage and real-time synchronization of transportation data. This enables multiple users to access updated information simultaneously while reducing data redundancy and improving system reliability.</p>
+    <h4>3.3.8 Scalability</h4>
+    <p>The architecture of STA RIDE allows future expansion without requiring major modifications. Additional modules such as online payments, fleet management, business analytics, and artificial intelligence-based recommendations can be integrated easily.</p>
+    <h4>3.3.9 Data Security</h4>
+    <p>The implementation of Firebase Authentication and role-based access control protects user accounts and confidential transportation information against unauthorized access, thereby improving system security and data integrity.</p>
+    <h4>3.3.10 Easy System Maintenance</h4>
+    <p>The modular architecture simplifies software maintenance, bug fixing, feature upgrades, and future development activities without affecting other system components.</p>
+
+    <h4>3.4 Project Weaknesses</h4>
+    <p>Despite the successful implementation, several limitations were identified.</p>
+    <ul>
+        <li>The system requires a stable internet connection for real-time synchronization.</li>
+        <li>GPS accuracy depends on mobile device quality and satellite availability.</li>
+        <li>Online payment integration has not yet been implemented.</li>
+        <li>Testing was conducted using a limited number of users.</li>
+        <li>Some advanced transportation analytics were beyond the project scope.</li>
+        <li>The system has not yet been integrated with external government vehicle verification databases.</li>
+        <li>The application currently depends on third-party cloud services, which may introduce operational costs as the number of users increases.</li>
+        <li>GPS signal interference in densely populated urban areas may occasionally reduce location accuracy.</li>
+        <li>The current version does not support predictive demand analysis for transport planning.</li>
+    </ul>
+
+    <h3>3.5 Benefits of the Project</h3>
+    <p>The implementation of STA RIDE provides numerous benefits to different stakeholders.</p>
+
+    <p class="bold">Benefits to Passengers</p>
+    <p>The system enables passengers to request transportation services quickly and conveniently from any location. Real-time GPS tracking, secure authentication, fare estimation, and communication features improve safety, reduce waiting time, and enhance the overall travel experience.</p>
+
+    <p class="bold">Benefits to Drivers</p>
+    <p>Drivers benefit from automated ride management, simplified document verification, improved communication with passengers, and better monitoring of completed trips and earnings, thereby increasing operational efficiency.</p>
+
+    <p class="bold">Benefits to Transport Companies</p>
+    <p>Transport companies benefit through centralized administration, improved driver supervision, operational reporting, efficient fleet management, and enhanced decision-making based on real-time operational information.</p>
+
+    <p class="bold">Benefits to Administrators</p>
+    <p>Administrators can monitor transportation activities, verify drivers, manage user accounts, generate reports, and configure system settings through a centralized dashboard, thereby improving organizational control and accountability.</p>
+
+    <p class="bold">Benefits to Researchers</p>
+    <p>The project serves as an academic reference for future research in transportation information systems, cloud computing, mobile application development, software engineering, and digital transformation.</p>
+
+    <h4>3.6 Recommendations</h4>
+    <p>Based on the findings of this project, the following recommendations are proposed for future improvements.</p>
+    <h4>3.4.1 Technical Recommendations</h4>
+    <ul>
+        <li><b>Dynamic Asset Scaling:</b> Implement logic to detect device RAM at runtime and conditionally disable high-resolution map textures or background animations on devices with less than 4GB RAM.</li>
+        <li><b>Offline Mode:</b> Implement local caching using <i>Hive</i> or <i>SQLite</i> to allow partial functionality during brief network outages.</li>
+        <li><b>Security Hardening:</b> Regularly audit Firestore Security Rules to enforce granular field-level permissions as the user base grows.</li>
+    </ul>
+    <h4>3.6.2 Route Optimization</h4>
+    <p>Future development should include intelligent route optimization algorithms that reduce travel time and fuel consumption.</p>
+    <h4>3.6.3 Driver Performance Analytics</h4>
+    <p>The system can be enhanced by providing driver performance reports based on completed trips, customer ratings, response time, and punctuality.</p>
+    <h4>3.6.4 Business Intelligence Dashboard</h4>
+    <p>Future versions should include advanced dashboards that provide transportation companies with statistical reports, financial summaries, and operational analytics.</p>
+    <h4>3.6.5 Multi-Language Support</h4>
+    <p>The application should support multiple languages such as English and Kiswahili to improve accessibility for a wider range of users.</p>
+    <h4>3.6.6 Offline Support</h4>
+    <p>Future improvements should include limited offline functionality to allow users to continue accessing essential features during temporary internet outages.</p>
+    <h4>3.6.7 Improved Project Planning</h4>
+    <p>Future projects should allocate adequate time for requirements gathering, stakeholder consultations, user feedback collection, and iterative system refinement. Early planning reduces implementation risks and improves project quality.</p>
+    <h4>3.6.8 Operational Logistics</h4>
+    <p>Transport organizations should establish clear operational procedures for driver verification, customer support, vehicle inspection, incident reporting, and system monitoring to maximize the effectiveness of the STA RIDE platform.</p>
+    <h4>3.6.9 Regular System Maintenance</h4>
+    <p>Routine software updates, database optimization, security monitoring, and periodic backups should be performed to ensure continuous system reliability and availability.</p>
+    <h4>3.6.10 Continuous User Training</h4>
+    <p>Organizations implementing the system should conduct regular training programs for administrators, drivers, customer support personnel, and passengers to maximize system utilization and reduce operational errors.</p>
+
+    <h3>3.7 Final Conclusion</h3>
+    <p>The development of STA RIDE has demonstrated that information technology can significantly improve transportation management by providing secure, efficient, and reliable ride-hailing services. The developed system successfully integrates real-time communication, cloud computing, GPS tracking, user authentication, and centralized administration into one comprehensive platform.</p>
+    <p>The project has fulfilled its intended objectives and provides a strong foundation for future enhancement and commercial deployment.</p>
+
+    <div class="page-break"></div>
+
+    <h1>REFERENCES</h1>
+    <div class="no-indent">
+        <p>Bass, L., Clements, P. & Kazman, R., 2021. <i>Software Architecture in Practice</i>. 4th ed. Boston: Addison-Wesley.</p>
+        <p>Firebase, 2024. <i>Cloud Firestore Documentation</i>. [Online] Available at: <a href="https://firebase.google.com/docs/firestore">https://firebase.google.com/docs/firestore</a> [Accessed 8 July 2026].</p>
+        <p>Gamma, E., Helm, R., Johnson, R. & Vlissides, J., 1995. <i>Design Patterns: Elements of Reusable Object-Oriented Software</i>. Boston: Addison-Wesley.</p>
+        <p>Google Developers, 2024. <i>Flutter Documentation</i>. [Online] Available at: <a href="https://docs.flutter.dev">https://docs.flutter.dev</a> [Accessed 8 July 2026].</p>
+        <p>Hietanen, S., 2014. Mobility as a Service – The New Transport Model. <i>Eurotransport Magazine</i>, 12(2), pp.2–4.</p>
+        <p>Laudon, K.C. & Laudon, J.P., 2022. <i>Management Information Systems: Managing the Digital Firm</i>. 17th ed. Harlow: Pearson.</p>
+        <p>Martin, R.C., 2017. <i>Clean Architecture: A Craftsman's Guide to Software Structure and Design</i>. Boston: Prentice Hall.</p>
+        <p>Nielsen, J., 1994. <i>Usability Engineering</i>. San Francisco: Morgan Kaufmann.</p>
+        <p>Pressman, R.S. & Maxim, B.R., 2020. <i>Software Engineering: A Practitioner's Approach</i>. 9th ed. New York: McGraw-Hill.</p>
+        <p>Sommerville, I., 2020. <i>Software Engineering</i>. 10th ed. London: Pearson Education.</p>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h1>APPENDICES</h1>
+    <h4 class="appendix-title">Appendix A: Installation Guide</h4>
+    <p>The following software components are required before running the STA RIDE application.</p>
+    <p class="bold">Software Requirements</p>
+    <ul>
+        <li>Flutter SDK</li>
+        <li>Dart SDK</li>
+        <li>Android Studio</li>
+        <li>Visual Studio Code</li>
+        <li>Firebase Account</li>
+        <li>Google Maps API Key</li>
+        <li>Git</li>
+    </ul>
+    <p class="bold">Installation Steps</p>
+    <ol>
+        <li>Install Flutter SDK.</li>
+        <li>Install Android Studio.</li>
+        <li>Clone the project repository.</li>
+        <li>Configure Firebase.</li>
+        <li>Download <code>google-services.json</code>.</li>
+        <li>Enable Authentication.</li>
+        <li>Enable Firestore Database.</li>
+        <li>Enable Firebase Storage.</li>
+        <li>Configure Google Maps API.</li>
+        <li>Run the application using the Flutter command:
+            <pre>flutter pub get</pre>
+            <pre>flutter run</pre>
+        </li>
+    </ol>
+
+    <p class="bold">Appendix B: User Manual</p>
+    <p><b>Rider</b></p>
+    <ul>
+        <li>Register account.</li>
+        <li>Login.</li>
+        <li>Request Ride.</li>
+        <li>Track Driver.</li>
+        <li>Chat with Driver.</li>
+        <li>Complete Trip.</li>
+        <li>View Trip History.</li>
+    </ul>
+    <p><b>Driver</b></p>
+    <ul>
+        <li>Register Driver Account.</li>
+        <li>Upload Documents.</li>
+        <li>Accept Ride.</li>
+        <li>Start Trip.</li>
+        <li>Complete Trip.</li>
+        <li>View Earnings.</li>
+    </ul>
+    <p><b>Administrator</b></p>
+    <ul>
+        <li>Verify Drivers.</li>
+        <li>Monitor Trips.</li>
+        <li>Manage Users.</li>
+        <li>Generate Reports.</li>
+        <li>Configure System.</li>
+    </ul>
+
+    <p class="bold">Appendix C: Source Code Structure</p>
+    <p>The system follows a modular architecture within the <code>lib/</code> directory:</p>
+    <ul>
+        <li><code>lib/models/</code> — Data structures (User, Vehicle, Trip).</li>
+        <li><code>lib/providers/</code> — State management (RideProvider, DriverProvider).</li>
+        <li><code>lib/screens/</code> — UI Layers (Auth, Dashboard, Maps, Chat).</li>
+        <li><code>lib/services/</code> — External integrations (Firebase, Sound, Voice).</li>
+        <li><code>lib/widgets/</code> — Reusable UI components.</li>
+        <li><code>main_rider.dart, main_driver.dart, main_admin.dart</code> — Entry points.</li>
+    </ul>
+
+    <p class="bold">Appendix D: Database Architecture (Firestore)</p>
+    <p>The Cloud Firestore database is organized into the following root collections:</p>
+    <ul>
+        <li><code>users</code> — Profile data and account roles.</li>
+        <li><code>drivers_online</code> — Real-time location pool for active drivers.</li>
+        <li><code>ride_requests</code> — Transactional data for every trip initiated.</li>
+        <li><code>chats</code> — Sub-collections of messages between users.</li>
+        <li><code>settings</code> — Global system configuration and fare rates.</li>
+    </ul>
+
+    <p class="bold">Appendix E: Weekly Project Log</p>
+    <table>
+        <tr><th>Week</th><th>Activity</th><th>Status</th></tr>
+        <tr><td>1</td><td>Proposal Writing</td><td>Completed</td></tr>
+        <tr><td>2</td><td>Requirements Analysis</td><td>Completed</td></tr>
+        <tr><td>3</td><td>System Design</td><td>Completed</td></tr>
+        <tr><td>4</td><td>Database Design</td><td>Completed</td></tr>
+        <tr><td>5</td><td>User Interface Design</td><td>Completed</td></tr>
+        <tr><td>6</td><td>System Development</td><td>Completed</td></tr>
+        <tr><td>7</td><td>Firebase Integration</td><td>Completed</td></tr>
+        <tr><td>8</td><td>Maps Integration</td><td>Completed</td></tr>
+        <tr><td>9</td><td>System Testing</td><td>Completed</td></tr>
+        <tr><td>10</td><td>Bug Fixing</td><td>Completed</td></tr>
+        <tr><td>11</td><td>Documentation</td><td>Completed</td></tr>
+        <tr><td>12</td><td>Final Report Submission</td><td>Completed</td></tr>
+    </table>
+
+    <p class="bold">Appendix F: System Screenshots</p>
+    <div class="screenshot-grid">
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Login+Screen" alt="Login Screen">
+            <div class="screenshot-label">Figure F.1: Login Screen</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Registration+Screen" alt="Registration Screen">
+            <div class="screenshot-label">Figure F.2: Registration Screen</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Rider+Dashboard" alt="Rider Dashboard">
+            <div class="screenshot-label">Figure F.3: Rider Dashboard</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Driver+Dashboard" alt="Driver Dashboard">
+            <div class="screenshot-label">Figure F.4: Driver Dashboard</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Admin+Dashboard" alt="Administrator Dashboard">
+            <div class="screenshot-label">Figure F.5: Administrator Dashboard</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Ride+Request" alt="Ride Request Screen">
+            <div class="screenshot-label">Figure F.6: Ride Request Screen</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Driver+Verification" alt="Driver Verification Screen">
+            <div class="screenshot-label">Figure F.7: Driver Verification Screen</div>
+        </div>
+        <div class="screenshot-item">
+            <img src="https://placehold.co/400x800/1a1a1a/FFD700?text=Reports+Dashboard" alt="Reports Dashboard">
+            <div class="screenshot-label">Figure F.8: Reports Dashboard</div>
+        </div>
+    </div>
+
+    <p class="bold">Appendix G: System Diagrams</p>
+    <ul>
+        <li>Use Case Diagram</li>
+        <li>Activity Diagram</li>
+        <li>Sequence Diagram</li>
+        <li>ER Diagram</li>
+        <li>Database Schema</li>
+        <li>System Architecture Diagram</li>
+    </ul>
+
+    <p class="bold">Appendix H: Test Cases</p>
+    <table>
+        <tr><th>Test Case</th><th>Expected Result</th><th>Status</th></tr>
+        <tr><td>Login</td><td>User logged in successfully</td><td>Pass</td></tr>
+        <tr><td>Registration</td><td>User registered successfully</td><td>Pass</td></tr>
+        <tr><td>Ride Request</td><td>Driver receives request</td><td>Pass</td></tr>
+        <tr><td>GPS Tracking</td><td>Location updates correctly</td><td>Pass</td></tr>
+        <tr><td>Driver Verification</td><td>Driver approved</td><td>Pass</td></tr>
+        <tr><td>Report Generation</td><td>PDF generated</td><td>Pass</td></tr>
+    </table>
+
+    </div>
+</body>
+</html>

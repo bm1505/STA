@@ -1,0 +1,213 @@
+﻿PROJECT PROPOSAL
+Name: BARAKA MBOJE MAHEGA
+Registration Number: BCS-01-0038-2022
+Programme: Bachelor of Computer Science
+1. Project Title
+A Multi-Platform Smart Transport Management System (STA Ride)
+2. INTRODUCTION / BACKGROUND
+The transportation industry is undergoing rapid digital transformation due to advancements in mobile computing, internet connectivity, and real-time communication technologies. In modern urban environments, people increasingly rely on digital platforms to access transportation services quickly, efficiently, and safely. Ride-hailing systems such as Bolt and Uber have significantly changed how passengers interact with drivers by offering on-demand transport services through mobile applications.
+Despite these advancements, many developing regions, including Tanzania, still face several transportation challenges such as delayed driver-passenger matching, poor communication, inaccurate GPS positioning, lack of centralized monitoring systems, and limited safety features for vulnerable users.
+To address these challenges, this project proposes the development of STA Ride, a Multi-Platform Smart Transport Management System designed to provide a modern, secure, and scalable transport solution. The system integrates three major components:
+• Rider Application
+• Driver Application
+• Administrator Dashboard
+The system is expected to improve transport accessibility, operational efficiency, safety, and communication between riders, drivers, and transport administrators.
+3. PROBLEM STATEMENT
+Although existing ride-hailing systems have improved transportation accessibility, several operational and technological challenges still exist.
+Existing Problems
+3.1 Operational Inefficiency
+Many transport systems experience delays in matching riders with nearby drivers, leading to long waiting times and reduced customer satisfaction.
+3.2 Lack of Centralized Oversight
+Administrators often lack effective tools to monitor driver activities, ride history, earnings, and safety metrics in real time.
+3.3 Communication Gaps
+Poor synchronization between riders and drivers may cause missed requests, delayed notifications, and inefficient coordination during pickups.
+3.4 Development and Maintenance Cost
+Developing separate applications for riders, drivers, and administrators increases development complexity and maintenance costs.
+Additional Problem: GPS Pickup Inaccuracy
+One of the major limitations in existing ride-hailing systems is inaccurate GPS positioning during ride requests. GPS signals may fluctuate because of:
+• Poor internet connectivity
+• Tall buildings
+• Environmental interference
+• Device hardware limitations
+As a result:
+• Drivers fail to locate passengers accurately
+• Riders experience long waiting times
+• Pickup locations become incorrect
+• Communication delays increase frustration
+Most current systems depend entirely on standard GPS tracking without intelligent alternatives when GPS becomes unstable.
+Proposed Innovation
+To solve this challenge, the proposed STA Ride system introduces an:
+AI-Assisted Visual Pickup Positioning System
+The feature allows riders to:
+• Capture photos of their surroundings
+• Extract GPS coordinates from image EXIF metadata
+• Use AI-based landmark recognition when coordinates are unavailable
+• Automatically correct pickup pin locations
+• Share visual pickup references with drivers
+This innovation improves:
+• Pickup accuracy
+• Driver navigation
+• Passenger identification
+• Communication efficiency
+• Overall ride experience
+3.1 RESEARCH & INNOVATION GAPS
+Existing ride-hailing platforms operating in Tanzania still have several limitations which STA Ride aims to address:
+Existing GapProposed SolutionLack of women-focused ride securityWomen Safe Ride featureEnglish-only interfacesSwahili & English multilingual supportUnfair driver allocation algorithmsSmart fair-distribution algorithmDriver account sharing and fraudAI Face VerificationPoor emergency responseSOS emergency alert systemInaccurate GPS pickup positioningAI-Assisted Visual Pickup Positioning
+4. OBJECTIVES
+4.1 General Objective
+To design, develop, and implement a robust cross-platform Smart Transport Management System (STA Ride) that enhances transport efficiency, safety, communication, and accessibility through real-time technologies and intelligent positioning features.
+4.2 Specific Objectives
+The study aims to:
+1. Develop a Rider Application with:
+o Women Safe Ride feature
+o SOS emergency response
+o Real-time ride tracking
+2. Develop a Driver Application featuring:
+o AI-based face verification
+o Ride request management
+o Navigation assistance
+3. Implement a Smart Driver Allocation Algorithm that balances:
+o Driver proximity
+o Driver idle time
+o Fair work distribution
+4. Develop a multilingual interface supporting:
+o English
+o Kiswahili
+5. Develop an Admin Dashboard for:
+o Live system monitoring
+o Financial management
+o User management
+o Trip analytics
+6. Implement an AI-Assisted Visual Pickup Positioning feature to improve GPS accuracy.
+5. SYSTEM REQUIREMENTS
+5.1 Functional Requirements
+The proposed system shall provide:
+Rider Features
+• User registration and login
+• Ride booking
+• Live ride tracking
+• Women Safe Ride option
+• SOS emergency alerts
+• Fare estimation
+• Ride history
+• Multilingual support
+Driver Features
+• Driver registration and verification
+• Face verification using Google ML Kit
+• Ride acceptance/rejection
+• Real-time navigation
+• Earnings tracking
+• Online/offline availability control
+Admin Features
+• User management
+• Driver monitoring
+• Ride monitoring
+• Analytics and reporting
+• System configuration management
+Real-Time Features
+• Socket.IO real-time communication
+• Live GPS tracking
+• Instant notifications
+• Ride status synchronization
+AI Pickup Features
+• Visual pickup image upload
+• EXIF metadata extraction
+• AI landmark recognition
+• Automatic pin correction
+5.2 Non-Functional Requirements
+RequirementDescriptionPerformanceReal-time communication under 2 secondsSecurityEncrypted authentication and secure APIsScalabilityModular backend architectureAvailabilityHigh uptime for continuous serviceUsabilityUser-friendly Midnight Gold interfaceReliabilityStable synchronization between modules
+6. TECHNOLOGY STACK
+ComponentTechnologyFrontend FrameworkFlutter (Dart)Backend EnvironmentNode.js & Express.jsReal-Time EngineSocket.IODatabaseSQLiteMachine LearningGoogle ML KitMaps & RoutingOpenStreetMap (OSM)API TestingPostmanVersion ControlGit & GitHub
+7. SYSTEM ARCHITECTURE
+The STA Ride system follows a Modular Client-Server Architecture consisting of:
+7.1 Presentation Layer
+Three application modules generated from one Flutter codebase using Product Flavors:
+• Rider App
+• Driver App
+• Admin App
+7.2 Application Layer
+A Node.js server responsible for:
+• Business logic
+• Authentication
+• Ride matching
+• Real-time communication
+7.3 Data Layer
+SQLite database for:
+• User data
+• Ride records
+• Driver information
+• System configurations
+7.4 Communication Layer
+Hybrid communication using:
+• REST APIs for data transactions
+• Socket.IO WebSockets for real-time synchronization
+8. RESEARCH QUESTIONS
+1. How can real-time communication be optimized to reduce ride request latency?
+2. How effective is a single-codebase architecture in improving maintainability and deployment efficiency?
+3. How can AI-assisted visual positioning improve pickup accuracy compared to traditional GPS-only systems?
+4. How effective are multilingual interfaces in improving accessibility for local users?
+9. LITERATURE REVIEW
+Studies in mobile computing and software engineering indicate that cross-platform frameworks such as Flutter provide efficient solutions for developing scalable mobile applications. Real-time communication technologies like Socket.IO are widely used in modern transport systems due to their low-latency capabilities.
+Research on Smart City technologies emphasizes the importance of intelligent transportation systems for improving urban mobility, reducing delays, and enhancing passenger safety. Existing ride-hailing platforms have demonstrated the effectiveness of digital transportation services; however, several challenges remain unresolved, especially in developing countries.
+This project builds upon these studies by introducing:
+• AI-Assisted Visual Pickup Positioning
+• Women Safe Ride security features
+• Multilingual accessibility
+• Fair driver allocation algorithms
+10. METHODOLOGY
+The project will follow an Agile Software Development Methodology involving iterative development and continuous testing.
+10.1 System Design
+The system architecture separates:
+• Frontend applications
+• Backend services
+• Real-time communication modules
+10.2 Development Strategy
+The project uses Flutter Product Flavors to generate:
+• Rider APK
+• Driver APK
+• Admin APK
+from a single codebase.
+10.3 Data Persistence
+The system uses:
+• SQLite for local structured storage
+• Shared Preferences for lightweight caching
+10.4 Implementation Tools
+• VS Code
+• Git
+• Postman
+• Android Studio
+10.5 Testing
+Incremental testing will be conducted on:
+• Ride request flow
+• Real-time synchronization
+• GPS tracking
+• Face verification
+• AI pickup positioning
+11. EXPECTED RESULTS / OUTCOMES
+The project is expected to produce:
+1. A fully functional STA Ride prototype.
+2. Real-time synchronization between Rider, Driver, and Admin modules.
+3. Improved ride pickup accuracy through AI-assisted positioning.
+4. Enhanced user safety through emergency and verification features.
+5. Fair driver allocation and workload balancing.
+6. A centralized admin monitoring dashboard.
+7. A technical documentation report describing the system architecture and implementation.
+12. WORK PLAN / TIMELINE
+ActivityDurationStatusRequirement Analysis & UI/UX Design2 WeeksCompletedBackend API & Database Setup3 WeeksCompletedRider & Driver App Development4 WeeksTestingAdmin Dashboard Development2 WeeksTestingAI Pickup Positioning Integration2 WeeksIn ProgressFinal Testing & Documentation2 WeeksIn Progress
+13. LIMITATIONS
+1. Stable internet connectivity is required for real-time synchronization.
+2. GPS accuracy depends on environmental and hardware conditions.
+3. AI landmark recognition may require large image datasets for training.
+4. Low-RAM devices may experience slower build compilation processes.
+14. CONCLUSION
+The STA Ride project presents a modern and scalable smart transport management solution designed to improve urban mobility, safety, communication, and operational efficiency. By integrating Rider, Driver, and Administrator modules within a unified architecture, the system provides a comprehensive digital transportation ecosystem.
+The introduction of AI-Assisted Visual Pickup Positioning offers an innovative solution to GPS inaccuracy challenges commonly experienced in existing ride-hailing systems. The project demonstrates the practical application of modern software engineering principles, real-time communication technologies, AI-assisted features, and cross-platform development techniques.
+Therefore, the proposed system is expected to contribute significantly to smart transportation solutions within Tanzania and similar developing environments.
+15. REFERENCES
+1. Google Developers. (2024). Flutter Documentation: Build Configurations (Flavors).
+2. Socket.IO Documentation. (2024). Real-Time Bidirectional Event-Based Communication Guide.
+3. OpenStreetMap Wiki. (2023). Integrating OpenStreetMap in Mobile Applications.
+4. Sommerville, I. (2020). Software Engineering (10th Edition).
+5. Google ML Kit Documentation. (2024). Face Detection and On-Device Machine Learning.
+6. Pressman, R. (2019). Software Engineering: A Practitioner’s Approach.
+

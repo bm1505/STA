@@ -1,0 +1,46 @@
+STA RIDE: Smart Transportation Application
+	Bachelor of Computer Science Project Presentation
+	Presented by: BARAKA MBOJE MAHEGA
+	Registration Number: BCS-01-0038-2022
+	Supervisor: Mr. Naman G. Yohana
+	Institute of Accountancy Arusha
+	Department of Informatics and Mathematics
+	Academic Year 2025/2026
+
+Project Description
+	Introduction: Transportation plays a significant role in economic and social development. The rapid growth of ICT has transformed traditional transportation services into modern digital platforms that improve efficiency, safety, and accessibility.
+	Challenges: Many providers face inefficient ride management, poor driver verification, limited administrative monitoring, and inadequate communication between passengers and drivers.
+	Solution: STA RIDE integrates passengers, drivers, administrators, IT officers, and customer support into one centralized platform providing secure authentication, real-time GPS tracking, and centralized administration.
+
+Development Methodology
+	Agile Scrum Methodology: The STA RIDE application was developed using Agile Scrum to support iterative development, continuous testing, stakeholder feedback, and incremental software improvement through short development cycles (Sprints).
+	Development Process (Iterative Sprints):
+	1. Planning: Defined project scope, identified transportation challenges, and set the development timeline.
+	2. Requirements Analysis: Collected functional and non-functional requirements for Riders, Drivers, and Administrators.
+	3. System Design: Designed system architecture, database structure (Firebase), and Midnight Gold UI/UX interfaces.
+	4. Application Development: Developed the mobile app using Flutter and Dart, integrating real-time GPS and Firebase services.
+	5. System Testing: Performed functional testing, GPS accuracy verification, and rigorous stress testing of the wallet module.
+	6. Deployment: Prepared final application packaging, configured production environment, and finalized documentation.
+	* Continuous Feedback Loop: Each phase feeds back into Planning for constant improvement.
+	Technologies & Their Roles:
+	- Flutter & Dart: Cross-platform UI development and core application logic.
+	- Firebase: Real-time database, secure authentication, and cloud storage.
+	- Google Maps API: High-precision GPS tracking and route visualization.
+	- Android Studio: Integrated Development Environment (IDE) for building and debugging.
+
+Significance of the Project
+	Passengers: Easy ride booking, real-time driver tracking, improved safety, and faster transportation services.
+	Drivers: Efficient ride management, driver verification, better communication, and earnings monitoring.
+	Administrators: User management, driver verification, ride monitoring, and report generation.
+	Organizations: Centralized administration, better operational efficiency, improved decision making, and enhanced service quality.
+
+Application Demonstration
+	Modules to Demonstrate: Rider App, Driver App, and Admin Dashboard.
+	Core Features to Watch:
+	1. Identity & Security: Secure Authentication & Multi-Role Onboarding.
+	2. Live Operations: Real-time Ride Request & High-Precision GPS Tracking.
+	3. Audio Synchronization: Context-aware sound triggers for ride events (New Request, Acceptance, Arrived, and Payment).
+	4. System Trust: Advanced Driver Document Review, Profile Update Approval Workflow, & Real-time User Feedback Monitoring (License, ID, and Vehicle Verification).
+	5. Financial Analytics: Real-time Wallet Management (Payouts & Commissions) & Live Statistical Reports (No refresh needed).
+	Thank You!
+	Questions & Answers

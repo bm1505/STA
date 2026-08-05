@@ -1,0 +1,34 @@
+STA RIDE: Smart Transportation Management System
+	Bachelor of Computer Science Project Presentation
+	Presented by: BARAKA MBOJE MAHEGA
+	Registration Number: BCS-01-0038-2022
+	Supervisor: Mr. Naman G. Yohana
+	Institute of Accountancy Arusha
+	Department of Informatics and Mathematics
+	Academic Year 2025/2026
+
+Project Description
+	Introduction: Transportation plays a significant role in economic and social development.
+	The rapid growth of ICT has transformed traditional services into modern digital platforms.
+	Challenges: Inefficient ride management, poor driver verification, and limited monitoring.
+	Solution: STA RIDE integrates passengers, drivers, and admins into one centralized platform.
+	Core Features: Secure authentication, real-time GPS tracking, and ride request management.
+
+Development Methodology
+	Agile Scrum: Supports iterative development, continuous testing, and regular feedback.
+	Process: Planning -> Requirements Analysis -> System Design -> Development -> Testing -> Deployment.
+	Technologies: Flutter, Dart, Firebase (Authentication, Firestore, Storage).
+	Tools & APIs: Google Maps API, Android Studio, Visual Studio Code.
+
+Significance of the Project
+	Passengers: Easy ride booking, real-time tracking, improved safety, and faster services.
+	Drivers: Efficient ride management, driver verification, and earnings monitoring.
+	Administrators: User management, driver verification, ride monitoring, and report generation.
+	Organizations: Centralized administration, better operational efficiency, and improved decision making.
+
+System Demonstration & Conclusion
+	Modules: Login, User Registration, Dashboards (Rider, Driver, Admin).
+	Demonstration: Ride Request, GPS Tracking, Driver Verification, and Reports.
+	"STA RIDE: Smart Transportation Management System"
+	Questions & Answers
+	Thank You!

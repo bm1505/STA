@@ -1,0 +1,898 @@
+FINAL YEAR PROJECT REPORT
+PROJECT TITLE
+
+STA RIDE: A Multi-Platform Smart Transportation System for Ride-Hailing Services with Real-Time Tracking and Voice-Based Ride Request
+
+ACKNOWLEDGEMENT
+
+I would like to express my sincere gratitude to Almighty God for granting me good health, strength, wisdom, and perseverance throughout the development of this project.
+
+My heartfelt appreciation goes to my project supervisor for providing valuable guidance, constructive criticism, encouragement, and continuous support from the beginning to the completion of this project. Their professional advice greatly contributed to the success of this work.
+
+I also wish to thank the lecturers of the Department of Computer Science and Software Engineering for imparting knowledge and practical skills throughout my academic journey.
+
+Special thanks go to my family and friends for their moral support, encouragement, patience, and prayers during the entire period of this project.
+
+Lastly, I appreciate everyone who contributed directly or indirectly towards the successful completion of this project.
+
+ABSTRACT
+
+The rapid advancement of mobile technologies and internet connectivity has transformed the transportation industry by introducing ride-hailing services that connect passengers and drivers through digital platforms. Despite the availability of international ride-hailing applications, many local transportation systems still face challenges such as inefficient ride management, limited administrative control, lack of real-time monitoring, and inadequate support for local operational requirements.
+
+This project presents the design and implementation of STA RIDE, a multi-platform smart transportation system developed using Flutter and Firebase technologies. The system provides different interfaces for Riders, Drivers, Administrators, IT Officers, and Customer Support personnel. It incorporates real-time GPS tracking, secure user authentication, ride management, driver verification, notification services, fare calculation, chat functionality, and voice-assisted destination selection.
+
+The project adopted the Agile Scrum software development methodology to facilitate iterative development and continuous improvement. Firebase Authentication, Cloud Firestore, Cloud Messaging, and Google Maps services were integrated to ensure secure communication and real-time synchronization of system data.
+
+System testing was conducted through Unit Testing, Integration Testing, Performance Testing, and User Acceptance Testing. The results indicated that the system successfully met its functional and non-functional requirements by providing reliable ride management, enhanced security, improved operational efficiency, and a user-friendly interface.
+
+The developed system demonstrates that modern mobile technologies can significantly improve transportation management while providing an efficient platform for passengers, drivers, and system administrators.
+
+TABLE OF CONTENTS
+
+PRELIMINARY PAGES
+
+Acknowledgement
+
+Abstract
+
+Table of Contents
+
+List of Figures
+
+List of Tables
+
+List of Acronyms
+
+CHAPTER ONE: INTRODUCTION
+
+1.1 Background Information
+
+1.2 Project Description
+
+1.3 Problem Statement
+
+1.4 General Objective
+
+1.5 Specific Objectives
+
+1.6 Scope of the Project
+
+1.7 Significance of the Project
+
+CHAPTER TWO: MAIN BODY
+
+2.1 Methodology
+
+2.2 Requirements Specification
+
+2.3 Requirements Analysis
+
+2.4 System Design
+
+2.5 System Implementation
+
+2.6 System Testing
+
+CHAPTER THREE: CONCLUSION AND RECOMMENDATIONS
+
+3.1 Conclusion
+
+3.2 Recommendations
+
+References
+
+Appendices
+
+LIST OF FIGURES
+
+Figure 2.1 System Architecture
+
+Figure 2.2 Use Case Diagram
+
+Figure 2.3 Activity Diagram
+
+Figure 2.4 Sequence Diagram
+
+Figure 2.5 Entity Relationship Diagram
+
+Figure 2.6 System Navigation Flow
+
+Figure 2.7 Database Structure
+
+LIST OF TABLES
+
+Table 2.1 Functional Requirements
+
+Table 2.2 Non-Functional Requirements
+
+Table 2.3 User Roles
+
+Table 2.4 Database Collections
+
+Table 2.5 Test Cases
+
+Table 2.6 User Acceptance Test Results
+
+LIST OF ACRONYMS
+
+AI — Artificial Intelligence
+
+API — Application Programming Interface
+
+CRUD — Create, Read, Update and Delete
+
+ERD — Entity Relationship Diagram
+
+FCM — Firebase Cloud Messaging
+
+GPS — Global Positioning System
+
+JSON — JavaScript Object Notation
+
+RBAC — Role Based Access Control
+
+SDK — Software Development Kit
+
+UAT — User Acceptance Testing
+
+UI — User Interface
+
+UX — User Experience
+
+CHAPTER ONE
+INTRODUCTION
+1.1 Background Information
+
+Transportation plays a vital role in economic growth and social development by facilitating the movement of people and goods from one place to another. With the rapid advancement of Information and Communication Technology (ICT), transportation services have evolved from traditional manual operations to intelligent digital platforms that enable passengers and drivers to interact through mobile applications.
+
+Ride-hailing systems have become increasingly popular worldwide due to their convenience, efficiency, and accessibility. Companies such as Uber, Bolt, and InDrive have demonstrated how digital platforms can improve transportation services through real-time ride booking, GPS navigation, fare estimation, online payments, and driver tracking. These systems have significantly reduced waiting time while improving customer satisfaction and operational efficiency.
+
+Despite these advancements, many local transportation operators still experience several challenges, including inefficient trip management, poor communication between passengers and drivers, delayed ride confirmations, manual driver verification processes, and limited administrative monitoring capabilities. These challenges affect service quality, customer trust, and operational performance.
+
+Recent developments in cloud computing, mobile application development, and real-time databases have created opportunities to develop intelligent transportation management systems capable of solving these problems. Technologies such as Flutter, Firebase Authentication, Cloud Firestore, Google Maps API, and Cloud Messaging enable developers to build secure, scalable, and real-time transportation platforms that operate across multiple devices.
+
+This project introduces STA RIDE, a smart transportation system designed to improve ride management by providing a comprehensive platform for passengers, drivers, administrators, IT officers, and customer support staff. The system supports real-time ride requests, driver verification, GPS location tracking, trip monitoring, fare calculation, notification services, in-app communication, and voice-assisted destination selection to improve accessibility and user experience.
+
+The implementation of this system demonstrates how modern software technologies can enhance transportation management, improve operational efficiency, strengthen system security, and provide better services for all stakeholders involved in ride-hailing operations.
+
+1.2 Project Description
+
+STA RIDE is a multi-platform ride-hailing management system developed to facilitate efficient communication and interaction between passengers, drivers, and system administrators. The application enables passengers to request rides, monitor driver locations, estimate transportation costs, communicate with drivers, and receive ride updates in real time.
+
+Drivers can register their vehicles, upload verification documents, receive ride requests, navigate to passenger locations, manage completed trips, and monitor their earnings through dedicated dashboards.
+
+The administrative section enables system administrators to verify driver registrations, monitor ongoing trips, manage users, configure fare rates, review reports, and oversee overall system operations. Additional modules for IT officers and customer support staff provide technical support, user management, dispute resolution, and system maintenance.
+
+The system has been developed using Flutter for cross-platform application development and Firebase as the cloud backend to provide secure authentication, real-time data synchronization, cloud storage, and notification services.
+
+1.3 Problem Statement
+
+Although several ride-hailing applications exist in the market, many transportation service providers continue to experience operational challenges due to inadequate management systems. Existing solutions often focus primarily on connecting passengers and drivers while providing limited administrative control for local transport operators.
+
+Many systems lack comprehensive driver verification mechanisms, centralized administrative dashboards, integrated customer support modules, and efficient monitoring tools. Additionally, some users face difficulties when entering destinations manually, especially while driving or when unfamiliar with specific locations.
+
+These limitations reduce operational efficiency, affect customer satisfaction, and create security concerns within transportation services. Therefore, there is a need to develop a comprehensive smart transportation system capable of providing secure ride management, real-time monitoring, effective administrative control, and improved accessibility through voice-assisted destination selection.   1.4 General Objective
+
+The general objective of this project was to design and develop a multi-platform smart transportation management system that enables efficient ride-hailing services through real-time communication, GPS tracking, secure user management, and centralized administrative control to improve transportation services.
+
+1.5 Specific Objectives
+
+The specific objectives of this project were:
+
+To design and develop a secure user authentication system for Riders, Drivers, Administrators, IT Officers, and Customer Support staff.
+To develop a ride request and management module that allows passengers to request, monitor, and complete transportation services efficiently.
+To implement a real-time GPS tracking system that enables passengers and administrators to monitor driver locations during active trips.
+To develop a driver management module for driver registration, document verification, vehicle information management, and trip history.
+To implement a centralized administrative dashboard for managing users, monitoring active rides, generating reports, and configuring system settings.
+To integrate notification services that provide instant communication between passengers, drivers, and administrators.
+To implement a fare calculation mechanism based on travel distance and predefined pricing policies.
+To develop an in-app messaging system that facilitates communication between riders and drivers during active trips.
+To evaluate the performance, usability, reliability, and security of the developed transportation management system through comprehensive system testing.
+1.6 Scope of the Project
+
+This project focused on the design and implementation of a smart transportation management system known as STA RIDE. The system was developed to support transportation service management through multiple user roles operating within a single integrated platform.
+
+The project specifically covered the following areas:
+
+Rider Module
+
+The rider module enables passengers to:
+
+Register and log into the system.
+Update personal profile information.
+Request transportation services.
+View nearby available drivers.
+Track drivers in real time.
+View estimated fare before confirming a trip.
+Chat with drivers.
+Cancel ride requests.
+View trip history.
+Rate completed trips.
+Driver Module
+
+The driver module allows drivers to:
+
+Register driver accounts.
+Upload driving license and vehicle documents.
+Manage personal and vehicle information.
+Receive ride requests.
+Accept or reject ride requests.
+Navigate to passenger locations.
+Update online and offline availability.
+View earnings and completed trips.
+Administrator Module
+
+The administrator module provides facilities for:
+
+Managing system users.
+Verifying driver documents.
+Monitoring ongoing trips.
+Managing fare settings.
+Viewing reports and statistics.
+Monitoring system performance.
+Managing complaints and customer support requests.
+IT Support Module
+
+The IT module is responsible for:
+
+Monitoring system performance.
+Managing technical issues.
+Maintaining user permissions.
+Monitoring application logs.
+Supporting software maintenance.
+Customer Support Module
+
+The customer support module enables staff to:
+
+Receive customer complaints.
+Resolve disputes.
+Communicate with users.
+Track reported incidents.
+Monitor customer service activities.
+
+The project was limited to software development and system testing. It did not include deployment to commercial production servers, integration with banking systems, or implementation of online payment gateways.
+
+1.7 Significance of the Project
+
+The implementation of the STA RIDE system provides significant benefits to different stakeholders involved in transportation services.
+
+Passengers
+
+Passengers benefit from:
+
+Fast ride booking.
+Improved safety.
+Real-time driver tracking.
+Reduced waiting time.
+Easy communication with drivers.
+Better transportation experience.
+Drivers
+
+Drivers benefit from:
+
+Efficient ride management.
+Increased job opportunities.
+Better communication with passengers.
+Simplified document management.
+Earnings monitoring.
+Improved trip organization.
+Transport Companies
+
+Transport companies benefit from:
+
+Improved operational efficiency.
+Better fleet management.
+Enhanced customer satisfaction.
+Reduced administrative workload.
+Better decision-making through reports.
+Improved driver accountability.
+System Administrators
+
+The system enables administrators to:
+
+Manage users efficiently.
+Monitor all transportation activities.
+Generate reports.
+Verify drivers.
+Configure operational settings.
+Improve overall system security.
+Researchers and Students
+
+The project serves as a valuable reference for future researchers and students interested in mobile application development, cloud computing, real-time systems, transportation management systems, and software engineering.
+
+1.8 Limitations of the Project
+
+During the development of this project, several limitations were encountered.
+
+The system depends on internet connectivity for real-time communication and synchronization.
+GPS accuracy may vary depending on weather conditions and mobile device capabilities.
+The project was tested using a limited number of users due to time constraints.
+Integration with mobile money payment services was not implemented within the scope of this project.
+Some advanced transportation features such as route optimization using artificial intelligence and automated fleet scheduling were beyond the scope of this study.  CHAPTER TWO
+MAIN BODY
+2.1 Methodology
+2.1.1 Introduction
+
+This chapter describes the methodology used in the development of the STA RIDE Smart Transportation System. It presents the software development approach, requirements specification, requirements analysis, system design, implementation process, and system testing procedures used to ensure that the developed system met the project objectives.
+
+2.1.2 Software Development Methodology
+
+The development of the STA RIDE system adopted the Agile Scrum Methodology. Agile is an iterative software development approach that emphasizes continuous planning, development, testing, and improvement throughout the project lifecycle.
+
+The methodology was selected because it provides flexibility in accommodating changing requirements, encourages collaboration among stakeholders, and allows continuous testing during development.
+
+The project was divided into several development iterations (Sprints), where each sprint focused on implementing specific system functionalities before moving to the next stage.
+
+The major Agile activities included:
+
+Project Planning
+Requirement Gathering
+System Design
+Implementation
+Testing
+Evaluation
+Deployment Preparation
+
+The Agile methodology improved project quality by allowing continuous feedback and reducing development risks.
+
+2.1.3 Development Tools
+
+The following software development tools were used during the implementation of the project.
+
+Tool	Purpose
+Flutter	Cross-platform mobile application development
+Dart	Programming language
+Firebase Authentication	User Authentication
+Cloud Firestore	Real-time Database
+Firebase Storage	Document Storage
+Firebase Cloud Messaging	Push Notifications
+Google Maps API	Maps and Navigation
+Android Studio	Application Development
+Visual Studio Code	Source Code Editing
+Git & GitHub	Version Control
+2.2 Requirements Specification
+
+Requirements specification identifies all functional and non-functional requirements necessary for the successful operation of the system.
+
+2.2.1 Functional Requirements
+
+The developed system must provide the following functionalities.
+
+Rider Requirements
+
+The rider should be able to:
+
+Register an account.
+Login securely.
+Update profile information.
+Request transportation services.
+View available nearby drivers.
+Track drivers in real time.
+Estimate trip fare.
+Chat with drivers.
+View trip history.
+Rate completed trips.
+Driver Requirements
+
+The driver should be able to:
+
+Register an account.
+Upload driving documents.
+Manage vehicle information.
+Accept or reject ride requests.
+Navigate to passenger location.
+View completed trips.
+Update availability status.
+Monitor earnings.
+Administrator Requirements
+
+The administrator should be able to:
+
+Manage users.
+Verify driver documents.
+Monitor active rides.
+Generate reports.
+Configure fare settings.
+Manage system settings.
+View statistics.
+Suspend users if necessary.
+IT Support Requirements
+
+The IT Officer should be able to:
+
+Monitor system performance.
+Manage technical support.
+Maintain user permissions.
+Monitor system logs.
+Perform software maintenance.
+Customer Support Requirements
+
+Customer support staff should be able to:
+
+Receive complaints.
+Resolve customer disputes.
+Monitor reported incidents.
+Communicate with customers.
+Track support requests.
+2.2.2 Non-Functional Requirements
+
+Apart from functional requirements, the system should satisfy several quality requirements.
+
+Performance
+
+The system should process ride requests within a few seconds.
+
+Reliability
+
+The system should provide consistent services with minimum downtime.
+
+Security
+
+The system should authenticate every user before granting access.
+
+User passwords should be encrypted.
+
+Only authorized users should access protected resources.
+
+Availability
+
+The system should be available at any time whenever internet connectivity is available.
+
+Scalability
+
+The system should support future expansion without significant modification.
+
+Usability
+
+The user interface should be simple, responsive, and easy to use.
+
+2.3 Requirements Analysis
+
+Requirements analysis was conducted to understand user needs and identify the features required by different stakeholders.
+
+2.3.1 Existing System Analysis
+
+Several ride-hailing systems such as Uber, Bolt, and InDrive were studied.
+
+Although these systems provide efficient transportation services, several limitations were identified:
+
+Limited administrative customization.
+Limited support for local transportation operators.
+Complex driver management.
+Limited monitoring tools for local businesses.
+Dependence on international payment methods.
+
+These limitations created the need for developing a customized transportation management system.
+
+2.3.2 Proposed System Analysis
+
+The proposed STA RIDE system addresses the identified limitations by providing:
+
+Centralized management.
+Driver verification.
+Real-time GPS tracking.
+Secure Authentication.
+Real-time notifications.
+Trip monitoring.
+Customer support.
+IT management.
+Ride history.
+Reports generation.
+Multi-user platform.
+2.3.3 User Analysis
+
+The system consists of five major users.
+
+User	Responsibilities
+Rider	Request rides, track drivers, manage trips
+Driver	Accept rides, update locations, complete trips
+Administrator	Manage system operations
+IT Officer	Technical maintenance
+Customer Support	Handle customer complaints
+2.4 System Design
+
+System design provides the blueprint of the developed system.
+
+2.4.1 System Architecture
+
+STA RIDE follows a client-server architecture.
+
+The architecture consists of:
+
+Mobile Application
+Firebase Authentication
+Cloud Firestore Database
+Firebase Storage
+Cloud Messaging
+Google Maps API
+
+The architecture supports real-time communication between all users.
+
+2.4.2 Database Design
+
+The system uses Firebase Cloud Firestore.
+
+Major collections include:
+
+Users
+Drivers
+Ride Requests
+Vehicles
+Notifications
+Reports
+System Settings
+
+Each collection stores specific information required for system operation.
+
+2.4.3 User Interface Design
+
+The user interface was designed to provide:
+
+Simple navigation.
+Responsive layout.
+Attractive appearance.
+Easy accessibility.
+User-friendly interaction.
+
+The interface uses Flutter Material Design components.
+
+2.4.4 System Flow
+
+The operational flow of the system is as follows:
+
+User Registration.
+User Login.
+Ride Request.
+Driver Notification.
+Driver Acceptance.
+Ride Tracking.
+Trip Completion.
+Payment Confirmation.
+Rating and Review.
+Report Generation.
+2.4.5 UML Diagrams
+
+The following UML diagrams were prepared:
+
+Use Case Diagram.
+Activity Diagram.
+Sequence Diagram.
+Entity Relationship Diagram (ERD).
+
+These diagrams describe system behavior and database relationships.
+
+2.5 System Implementation
+
+The implementation phase transformed the designed system into a working application.
+
+2.5.1 Programming Languages
+
+The system was developed using:
+
+Dart Programming Language.
+Flutter Framework.
+2.5.2 Database
+
+Firebase Cloud Firestore was used because it provides:
+
+Real-time synchronization.
+High availability.
+Cloud storage.
+Scalability.
+Secure access.
+2.5.3 Authentication
+
+Firebase Authentication provides secure login using:
+
+Email and Password Authentication.
+User Session Management.
+Password Recovery.
+2.5.4 Maps Integration
+
+Google Maps API was integrated to provide:
+
+Driver location.
+Passenger location.
+Route visualization.
+Distance calculation.
+Navigation.
+2.5.5 Notification Services
+
+Firebase Cloud Messaging enables:
+
+Ride request notifications.
+Driver acceptance notifications.
+Trip completion notifications.
+Emergency alerts.
+2.5.6 Driver Verification
+
+Drivers upload:
+
+Driving License.
+Vehicle Registration.
+Insurance Documents.
+
+Administrators verify all submitted documents before approving driver accounts.
+
+2.5.7 Fare Calculation
+
+The system automatically calculates transportation fares based on:
+
+Distance.
+Base Fare.
+Vehicle Type.
+Additional Charges.
+2.6 System Testing
+
+System testing was conducted to verify whether the developed system satisfies user requirements.
+
+2.6.1 Unit Testing
+
+Individual modules were tested separately.
+
+Examples include:
+
+Login Module.
+Registration Module.
+Driver Module.
+Ride Request Module.
+
+All modules passed successfully.
+
+2.6.2 Integration Testing
+
+Integration testing verified communication between modules including:
+
+Authentication and Database.
+Ride Requests and Notifications.
+Maps and GPS.
+Driver Module and Administrator Module.
+
+The modules interacted successfully.
+
+2.6.3 User Acceptance Testing (UAT)
+
+Several users tested the application under normal operating conditions.
+
+The evaluation showed:
+
+Easy navigation.
+Fast ride requests.
+Reliable GPS tracking.
+Secure authentication.
+Positive user experience.
+2.6.4 Test Results
+Test Item	Expected Result	Actual Result	Status
+User Registration	Successful Registration	Successful	Pass
+User Login	Login Successfully	Successful	Pass
+Ride Request	Request Sent	Successful	Pass
+Driver Acceptance	Ride Accepted	Successful	Pass
+GPS Tracking	Real-Time Tracking	Successful	Pass
+Notifications	Instant Notification	Successful	Pass
+Driver Verification	Verification Completed	Successful	Pass     CHAPTER THREE
+CONCLUSION AND RECOMMENDATIONS
+3.1 Introduction
+
+This chapter presents the conclusion and recommendations of the STA RIDE Smart Transportation System project. It summarizes the achievements of the project, identifies its strengths and limitations, and provides recommendations for future improvements.
+
+3.2 Conclusion
+
+The main objective of this project was to design and develop a smart transportation management system capable of improving ride-hailing services through real-time communication, secure authentication, GPS tracking, centralized administration, and efficient user management.
+
+The project successfully achieved its objectives by developing STA RIDE, a modern multi-platform transportation system that enables passengers, drivers, administrators, IT officers, and customer support staff to perform their respective responsibilities within one integrated platform.
+
+The system provides secure user authentication, driver verification, ride request management, real-time location tracking, notifications, fare calculation, trip history management, reporting, and administrative monitoring. These features significantly improve operational efficiency and service delivery compared to traditional transportation management methods.
+
+The Agile Scrum development methodology enabled the project to be developed in manageable stages while allowing continuous testing and improvement throughout the development process. Firebase cloud services ensured secure data storage, real-time synchronization, and reliable communication among all users.
+
+System testing demonstrated that the developed system meets both functional and non-functional requirements. The results confirmed that the application is reliable, secure, user-friendly, and capable of supporting transportation management activities efficiently.
+
+Overall, the project has demonstrated that modern mobile technologies and cloud computing can provide an effective solution for improving transportation services through digital transformation.
+
+3.3 Project Strengths
+
+The developed system has several strengths that contribute to its effectiveness.
+
+3.3.1 Real-Time Ride Management
+
+The system allows passengers and administrators to monitor active rides in real time, improving transparency and operational efficiency.
+
+3.3.2 Multi-User Platform
+
+Unlike many conventional systems, STA RIDE supports multiple user roles including Riders, Drivers, Administrators, IT Officers, and Customer Support staff.
+
+3.3.3 Secure Authentication
+
+Firebase Authentication provides secure login mechanisms that protect user information and prevent unauthorized access.
+
+3.3.4 Centralized Administration
+
+The administrator dashboard simplifies user management, driver verification, trip monitoring, report generation, and system configuration.
+
+3.3.5 Cross-Platform Compatibility
+
+The application is developed using Flutter, enabling deployment on Android, iOS, and Web platforms using a single codebase.
+
+3.3.6 User-Friendly Interface
+
+The application provides an intuitive interface that enables users to navigate system features easily with minimal training.
+
+3.4 Project Weaknesses
+
+Despite the successful implementation, several limitations were identified.
+
+The system requires a stable internet connection for real-time synchronization.
+GPS accuracy depends on mobile device quality and satellite availability.
+Online payment integration has not yet been implemented.
+Testing was conducted using a limited number of users.
+Some advanced transportation analytics were beyond the project scope.
+3.5 Benefits of the Project
+
+The implementation of STA RIDE provides numerous benefits to different stakeholders.
+
+Passengers
+Easy ride booking.
+Real-time tracking.
+Improved safety.
+Better communication with drivers.
+Reduced waiting time.
+Drivers
+Efficient ride management.
+Easy document submission.
+Better earnings monitoring.
+Improved customer communication.
+Transport Companies
+Better fleet management.
+Improved operational efficiency.
+Enhanced service quality.
+Better reporting and monitoring.
+Improved decision-making.
+Administrators
+User management.
+Driver verification.
+System monitoring.
+Report generation.
+Operational control.
+Researchers
+
+The project serves as a valuable reference for future studies in mobile application development, transportation systems, cloud computing, and software engineering.
+
+3.6 Recommendations
+
+Based on the findings of this project, the following recommendations are proposed for future improvements.
+
+3.6.1 Online Payment Integration
+
+Future versions should integrate digital payment platforms such as M-Pesa, Airtel Money, Tigo Pesa, HaloPesa, Visa, and Mastercard to provide cashless payment options.
+
+3.6.2 Route Optimization
+
+Future development should include intelligent route optimization algorithms that reduce travel time and fuel consumption.
+
+3.6.3 Driver Performance Analytics
+
+The system can be enhanced by providing driver performance reports based on completed trips, customer ratings, response time, and punctuality.
+
+3.6.4 Business Intelligence Dashboard
+
+Future versions should include advanced dashboards that provide transportation companies with statistical reports, financial summaries, and operational analytics.
+
+3.6.5 Multi-Language Support
+
+The application should support multiple languages such as English and Kiswahili to improve accessibility for a wider range of users.
+
+3.6.6 Offline Support
+
+Future improvements should include limited offline functionality to allow users to continue accessing essential features during temporary internet outages.
+
+3.7 Final Conclusion
+
+The development of STA RIDE has demonstrated that information technology can significantly improve transportation management by providing secure, efficient, and reliable ride-hailing services. The developed system successfully integrates real-time communication, cloud computing, GPS tracking, user authentication, and centralized administration into one comprehensive platform.
+
+The project has fulfilled its intended objectives and provides a strong foundation for future enhancement and commercial deployment.
+
+REFERENCES (Harvard Style)
+
+Bass, L., Clements, P. & Kazman, R., 2021. Software Architecture in Practice. 4th ed. Boston: Addison-Wesley.
+
+Firebase, 2024. Cloud Firestore Documentation. Available at: https://firebase.google.com/docs/firestore [Accessed 8 July 2026].
+
+Google Developers, 2024. Flutter Documentation. Available at: https://docs.flutter.dev [Accessed 8 July 2026].
+
+Hietanen, S., 2014. Mobility as a Service – The New Transport Model. Eurotransport Magazine, 12(2), pp.2–4.
+
+Martin, R.C., 2017. Clean Architecture: A Craftsman's Guide to Software Structure and Design. Boston: Prentice Hall.
+
+Nielsen, J., 1994. Usability Engineering. San Francisco: Morgan Kaufmann.
+
+Pressman, R.S. & Maxim, B.R., 2020. Software Engineering: A Practitioner's Approach. 9th ed. New York: McGraw-Hill.
+
+Sommerville, I., 2020. Software Engineering. 10th ed. London: Pearson Education.
+
+APPENDICES
+Appendix A: Installation Guide
+
+The following software components are required before running the STA RIDE application.
+
+Software Requirements
+Flutter SDK
+Dart SDK
+Android Studio
+Visual Studio Code
+Firebase Account
+Google Maps API Key
+Git
+Installation Steps
+Install Flutter SDK.
+Install Android Studio.
+Clone the project repository.
+Configure Firebase.
+Download google-services.json.
+Enable Authentication.
+Enable Firestore Database.
+Enable Firebase Storage.
+Configure Google Maps API.
+Run the application using the Flutter command:
+flutter pub get
+
+flutter run
+Appendix B: User Manual
+Rider
+Register account.
+Login.
+Request Ride.
+Track Driver.
+Chat with Driver.
+Complete Trip.
+View Trip History.
+Driver
+Register Driver Account.
+Upload Documents.
+Accept Ride.
+Start Trip.
+Complete Trip.
+View Earnings.
+Administrator
+Verify Drivers.
+Monitor Trips.
+Manage Users.
+Generate Reports.
+Configure System.
+Appendix C: Source Code
+
+The complete source code of the system is attached separately.
+
+Main folders include:
+
+lib/
+services/
+providers/
+screens/
+models/
+widgets/
+firebase/
+Appendix D: Database Collections
+
+The Firestore database contains the following collections:
+
+users
+drivers
+ride_requests
+notifications
+vehicles
+reports
+settings
+Appendix E: Weekly Project Log
+Week	Activity	Status
+1	Proposal Writing	Completed
+2	Requirements Analysis	Completed
+3	System Design	Completed
+4	Database Design	Completed
+5	User Interface Design	Completed
+6	System Development	Completed
+7	Firebase Integration	Completed
+8	Maps Integration	Completed
+9	System Testing	Completed
+10	Bug Fixing	Completed
+11	Documentation	Completed
+12	Final Report Submission	Completed

@@ -1,0 +1,76 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterSdkPath = localProperties.getProperty("flutter.sdk")
+def flutterEngineVersion = flutterSdkPath == null
+        ? null
+        : file("$flutterSdkPath/bin/cache/engine.stamp").text.trim()
+
+android {
+    namespace "com.sta"
+    compileSdk 36
+    ndkVersion "28.2.13676358"
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+
+    defaultConfig {
+        minSdkVersion 24
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true
+    }
+
+    flavorDimensions "app"
+
+    productFlavors {
+        rider {
+            dimension "app"
+            applicationId "com.sta.ride"
+            resValue "string", "app_name", "STA Ride"
+        }
+        driver {
+            dimension "app"
+            applicationId "com.sta.driver"
+            resValue "string", "app_name", "STA Driver"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    if (flutterEngineVersion != null) {
+        debugImplementation "io.flutter:flutter_embedding_debug:1.0.0-$flutterEngineVersion"
+        releaseImplementation "io.flutter:flutter_embedding_release:1.0.0-$flutterEngineVersion"
+    }
+}

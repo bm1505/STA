@@ -1,0 +1,42 @@
+pluginManagement {
+    def flutterSdkPath = {
+        def props = new java.util.Properties()
+        file("local.properties").withInputStream { props.load(it) }
+        def sdkPath = props.getProperty("flutter.sdk")
+        if (sdkPath == null) throw new GradleException("flutter.sdk not set in local.properties")
+        return sdkPath
+    }()
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+    id "com.android.application" version "8.9.1" apply false
+    id "org.jetbrains.kotlin.android" version "2.3.10" apply false
+    id "com.google.gms.google-services" version "4.4.2" apply false
+}
+
+include ":app"
+
+def flutterPluginsFile = file("../.flutter-plugins-dependencies")
+if (flutterPluginsFile.exists()) {
+    def flutterPlugins = new groovy.json.JsonSlurper()
+            .parseText(flutterPluginsFile.text)
+            .plugins
+            .android
+
+    flutterPlugins.each { plugin ->
+        def pluginDirectory = file("${plugin.path}/android")
+        if (pluginDirectory.exists()) {
+            include ":${plugin.name}"
+            project(":${plugin.name}").projectDir = pluginDirectory
+        }
+    }
+}
