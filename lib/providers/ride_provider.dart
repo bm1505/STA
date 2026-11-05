@@ -123,6 +123,12 @@ class RideProvider extends ChangeNotifier {
         guestName: guestName, guestPhone: guestPhone,
       );
       _listenToRide(id);
+      await findNearbyDrivers(
+        lat: pickupLat,
+        lng: pickupLng,
+        vehicleType: vehicleType,
+        region: region == null || region.trim().isEmpty ? null : region.trim(),
+      );
       _setLoading(false);
       return true;
     } catch (e) {
