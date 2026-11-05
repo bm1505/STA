@@ -294,6 +294,86 @@ class DatabaseService {
   Stream<List<UserModel>> getAdminProfilesStream() =>
       _db.from('profiles').stream(primaryKey: ['id'])
           .map((rows) => rows.map(_userFromRow).toList());
+  Stream<Map<String, dynamic>> getAdminStatsStream() =>
+      _db.from('trips').stream(primaryKey: ['id']).asyncMap((tripRows) async {
+        final profiles = await _db.from('profiles').select('id,role');
+        final activeRides = await _db.from('ride_requests').select('id')
+            .inFilter('status', ['accepted', 'driver_arrived', 'in_progress']);
+        final commissions = await _db.from('wallet_transactions')
+            .select('amount,created_at')
+            .eq('transaction_type', 'commission_deduction')
+            .eq('status', 'completed');
+        final now = DateTime.now();
+        final startOfToday = DateTime(now.year, now.month, now.day);
+        double totalFare = 0;
+        double todayFare = 0;
+        for (final trip in tripRows) {
+          final fare = (trip['fare'] as num?)?.toDouble() ?? 0;
+          totalFare += fare;
+          final created = DateTime.tryParse(
+              (trip['completed_at'] ?? trip['created_at'] ?? '').toString());
+          if (created != null && created.isAfter(startOfToday)) todayFare += fare;
+        }
+        double totalCommission = 0;
+        double todayCommission = 0;
+        for (final row in commissions) {
+          final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+          totalCommission += amount;
+          final created = DateTime.tryParse(row['created_at']?.toString() ?? '');
+          if (created != null && created.isAfter(startOfToday)) todayCommission += amount;
+        }
+        return {
+          'drivers': profiles.where((p) => p['role'] == 'driver').length,
+          'riders': profiles.where((p) => p['role'] == 'rider').length,
+          'totalTrips': tripRows.length,
+          'activeTrips': activeRides.length,
+          'totalFare': totalFare,
+          'todayFare': todayFare,
+          'totalCommissions': totalCommission,
+          'todayCommissions': todayCommission,
+        };
+      });
+
+  Stream<List<UserModel>> getAdminRecentUsersStream() =>
+      getAdminProfilesStream().map((users) {
+        users.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return users.take(8).toList();
+      });
+
+  Stream<List<UserModel>> getPendingDriversStream() =>
+      getDriversStream().map((drivers) => drivers
+          .where((driver) => driver.verificationStatus == VerificationStatus.pending)
+          .toList());
+
+  Stream<List<Map<String, dynamic>>> getTopDriversStream() =>
+      _db.from('driver_profiles').stream(primaryKey: ['user_id']).asyncMap((rows) async {
+        final sorted = rows.toList()
+          ..sort((a, b) => ((b['total_rides'] as num?)?.toInt() ?? 0)
+              .compareTo((a['total_rides'] as num?)?.toInt() ?? 0));
+        final ids = sorted.take(10).map((r) => r['user_id'].toString()).toList();
+        if (ids.isEmpty) return <Map<String, dynamic>>[];
+        final profiles = await _db.from('profiles')
+            .select('id,user_data,full_name').inFilter('id', ids);
+        final byId = {for (final p in profiles) p['id'].toString(): p};
+        return sorted.take(10).map((driver) {
+          final profile = byId[driver['user_id'].toString()];
+          final data = profile?['user_data'] is Map
+              ? Map<String, dynamic>.from(profile!['user_data'] as Map)
+              : <String, dynamic>{};
+          return {
+            ...driver,
+            'id': driver['user_id'],
+            'name': data['name'] ?? profile?['full_name'] ?? 'Driver',
+            'totalRides': driver['total_rides'] ?? 0,
+          };
+        }).toList();
+      });
+
+  Stream<List<Map<String, dynamic>>> getCommissionTransactionsStream() =>
+      _db.from('wallet_transactions').stream(primaryKey: ['id'])
+          .eq('transaction_type', 'commission_deduction')
+          .map((rows) => rows.map((r) => Map<String, dynamic>.from(r)).toList());
+
 
   Stream<List<Map<String, dynamic>>> getDriverRatingsStream(String driverId) =>
       _db.from('ride_ratings').stream(primaryKey: ['id'])
