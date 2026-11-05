@@ -38,6 +38,7 @@ android {
         versionCode 1
         versionName "1.0"
         multiDexEnabled true
+        manifestPlaceholders = [MAPS_API_KEY: localProperties.getProperty('MAPS_API_KEY', 'MAPS_API_KEY_PLACEHOLDER')]
     }
 
     flavorDimensions "app"
