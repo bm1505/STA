@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +21,8 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
   List<Map<String, dynamic>> _maintenance = [];
   List<Map<String, dynamic>> _contracts = [];
   List<Map<String, dynamic>> _members = [];
+  List<Map<String, dynamic>> _liveDrivers = [];
+  StreamSubscription<List<Map<String, dynamic>>>? _locationSubscription;
   Map<String, dynamic> _metrics = {};
   String? _organizationId;
   bool _loading = true;
@@ -29,6 +32,12 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
   void initState() {
     super.initState();
     _loadOrganizations();
+  }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadOrganizations() async {
@@ -62,6 +71,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _db.from('fleet_maintenance_records').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.from('transport_contracts').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.rpc('sta_list_org_members', params: {'p_org_id': id}),
+        _db.rpc('sta_org_live_locations', params: {'p_org_id': id}),
       ]);
       final metricRows = results[0] as List;
       if (!mounted) return;
@@ -73,11 +83,30 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _maintenance = (results[4] as List).map((r) => Map<String, dynamic>.from(r)).toList();
         _contracts = (results[5] as List).map((r) => Map<String, dynamic>.from(r)).toList();
         _members = (results[6] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
+        _liveDrivers = (results[7] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
         _busy = false;
+      });
+      await _locationSubscription?.cancel();
+      _locationSubscription = _db.from('driver_locations')
+          .stream(primaryKey: ['driver_id'])
+          .listen((_) => _loadLiveDrivers(), onError: (error) {
+        debugPrint('Fleet location stream failed: $error');
       });
     } catch (error) {
       if (mounted) setState(() => _busy = false);
       _showMessage('Could not refresh fleet data: $error');
+    }
+  }
+
+  Future<void> _loadLiveDrivers() async {
+    final id = _organizationId;
+    if (id == null) return;
+    try {
+      final result = await _db.rpc('sta_org_live_locations', params: {'p_org_id': id});
+      final drivers = (result as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      if (mounted) setState(() => _liveDrivers = drivers);
+    } catch (error) {
+      debugPrint('Fleet live location refresh failed: $error');
     }
   }
 
@@ -656,6 +685,23 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                         ),
                       ),
                     )),
+                  _sectionTitle('Live assigned drivers', null, ''),
+                  if (_liveDrivers.isEmpty)
+                    const Text('No assigned driver has a recent live location.', style: TextStyle(color: Colors.white54))
+                  else
+                    ..._liveDrivers.map((driver) {
+                      final updated = DateTime.tryParse(driver['recorded_at']?.toString() ?? '');
+                      return ListTile(
+                        leading: const Icon(Icons.gps_fixed, color: Colors.greenAccent),
+                        title: Text('${driver['driver_name']} · ${driver['vehicle_plate']}',
+                          style: const TextStyle(color: Colors.white)),
+                        subtitle: Text(
+                          '${driver['availability_status']} · ${driver['active_ride_status'] ?? 'No active ride'} · ${(driver['latitude'] as num).toStringAsFixed(5)}, ${(driver['longitude'] as num).toStringAsFixed(5)}',
+                          style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                        trailing: updated == null ? null : Text(DateFormat('HH:mm:ss').format(updated.toLocal()),
+                          style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                      );
+                    }),
                   _sectionTitle('Team', _addMember, 'Add member'),
                   ..._members.map((member) => ListTile(
                     leading: const Icon(Icons.person_outline, color: Colors.white60),
