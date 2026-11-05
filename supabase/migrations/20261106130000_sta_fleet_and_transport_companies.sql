@@ -153,45 +153,18 @@ create policy transport_orgs_admin_read on public.transport_organizations
 
 create policy org_members_member_read on public.organization_members
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy org_members_manager_write on public.organization_members
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager']));
-
 create policy transport_branches_member_read on public.transport_branches
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy transport_branches_manager_write on public.transport_branches
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager']));
-
 create policy fleet_vehicles_member_read on public.fleet_vehicles
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy fleet_vehicles_manager_write on public.fleet_vehicles
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']));
-
 create policy fleet_assignments_member_read on public.fleet_vehicle_assignments
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy fleet_assignments_manager_write on public.fleet_vehicle_assignments
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']));
-
 create policy fleet_fuel_member_read on public.fleet_fuel_logs
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy fleet_fuel_manager_write on public.fleet_fuel_logs
-  for insert to authenticated with check (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager','finance']));
-
 create policy fleet_maintenance_member_read on public.fleet_maintenance_records
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy fleet_maintenance_manager_write on public.fleet_maintenance_records
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager','fleet_manager']));
-
 create policy transport_contracts_member_read on public.transport_contracts
   for select to authenticated using (public.sta_is_org_member(organization_id));
-create policy transport_contracts_manager_write on public.transport_contracts
-  for all to authenticated using (public.sta_is_org_member(organization_id, array['owner','manager','finance']))
-  with check (public.sta_is_org_member(organization_id, array['owner','manager','finance']));
-
 create or replace function public.sta_create_transport_organization(
   p_name text,
   p_organization_type text,
