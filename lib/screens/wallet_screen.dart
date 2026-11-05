@@ -426,7 +426,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Top-up request submitted. Funds are added only after payment verification."),
+        content: Text("Top-up request recorded. No STK prompt was sent; funds are added only after the payment is verified."),
         backgroundColor: Colors.green,
       ));
 
