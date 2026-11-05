@@ -3,10 +3,32 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/localization_service.dart';
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/theme.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
+
+  Future<void> _openSupportChat(BuildContext context, AuthProvider auth) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    try {
+      final supportId = await Supabase.instance.client.rpc('sta_get_support_contact');
+      if (supportId == null) throw StateError('STA support is not available right now.');
+      if (!context.mounted) return;
+      Navigator.pushNamed(context, '/chat', arguments: {
+        'receiverId': supportId.toString(),
+        'receiverName': 'STA Support',
+        'senderId': user.id,
+        'senderName': user.name,
+      });
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open support chat: $error')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +66,7 @@ class SupportScreen extends StatelessWidget {
                   ? "Ongea na timu yetu sasa hivi"
                   : "Speak to our team now",
               isDark,
-              () => Navigator.pushNamed(context, '/chat', arguments: {
-                'receiverId': 'admin_support',
-                'receiverName': 'STA Support',
-                'senderId': auth.currentUser?.id ?? '',
-                'senderName': auth.currentUser?.name ?? 'User',
-              }),
+              () => _openSupportChat(context, auth),
             ),
             const SizedBox(height: 15),
             _buildSupportOption(
