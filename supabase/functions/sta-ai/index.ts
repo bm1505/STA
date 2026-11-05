@@ -103,6 +103,31 @@ serve(async (req) => {
       }, { headers: corsHeaders });
     }
 
+    if (action === "fleet_insights") {
+      const organizationId = typeof body.organizationId === "string" ? body.organizationId : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(organizationId)) {
+        return Response.json({ error: "A valid organization is required" }, { status: 400, headers: corsHeaders });
+      }
+      const { data: metrics, error: metricsError } = await supabase.rpc(
+        "sta_owner_dashboard", { p_org_id: organizationId },
+      );
+      if (metricsError || !metrics) {
+        return Response.json({ error: "Organization access denied or dashboard unavailable" }, { status: 403, headers: corsHeaders });
+      }
+      const { data: maintenance } = await supabase.from("fleet_maintenance_records")
+        .select("maintenance_type,status,cost,scheduled_at,completed_at")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false }).limit(8);
+      const { data: fuel } = await supabase.from("fleet_fuel_logs")
+        .select("quantity_liters,unit_price,total_cost,odometer_km,created_at")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false }).limit(8);
+      const insight = await generate(
+        `You are the STA fleet operations analyst. Analyze only the real organization metrics and records below. Give concise, actionable insights in Swahili or English (match the user's app language if discernible). Identify utilization, operating cost patterns, maintenance priorities, and data gaps. Never invent values, savings, faults, or forecasts. Do not call gross revenue profit; operating balance here excludes other costs such as salaries and insurance. If sample data is insufficient, say so. Metrics: ${JSON.stringify(metrics)}. Recent maintenance: ${JSON.stringify(maintenance ?? [])}. Recent fuel logs: ${JSON.stringify(fuel ?? [])}.`,
+      );
+      return Response.json({ insights: insight.slice(0, 2400) }, { headers: corsHeaders });
+    }
+
     if (action === "support_assistant") {
       const message = typeof body.message === "string" ? body.message.trim().slice(0, 1200) : "";
       if (message.length < 2) {
