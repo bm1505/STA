@@ -6,7 +6,6 @@ import '../services/localization_service.dart';
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'receipt_screen.dart';
 
 class RiderTripHistoryScreen extends StatefulWidget {
@@ -46,13 +45,8 @@ class _RiderTripHistoryScreenState extends State<RiderTripHistoryScreen> {
         var tsA = a['timestamp'];
         var tsB = b['timestamp'];
 
-        if (tsA is Timestamp) dtA = tsA.toDate();
-        else if (tsA is String) dtA = DateTime.parse(tsA);
-        else dtA = DateTime.now();
-
-        if (tsB is Timestamp) dtB = tsB.toDate();
-        else if (tsB is String) dtB = DateTime.parse(tsB);
-        else dtB = DateTime.now();
+        dtA = DateTime.tryParse(tsA?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        dtB = DateTime.tryParse(tsB?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
 
         return dtB.compareTo(dtA);
       });
@@ -154,13 +148,7 @@ class _RiderTripHistoryScreenState extends State<RiderTripHistoryScreen> {
   Widget _buildTripCard(Map<String, dynamic> trip, String lang) {
     DateTime dt;
     var ts = trip['timestamp'];
-    if (ts is Timestamp) {
-      dt = ts.toDate();
-    } else if (ts is String) {
-      dt = DateTime.parse(ts);
-    } else {
-      dt = DateTime.now();
-    }
+    dt = DateTime.tryParse(ts?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
     String formattedDate = DateFormat('MMM d, yyyy • hh:mm a').format(dt);
     String status = trip['status']?.toString().toUpperCase() ?? 'PENDING';
     
