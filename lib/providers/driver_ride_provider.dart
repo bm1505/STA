@@ -18,6 +18,7 @@ class DriverRideProvider extends ChangeNotifier {
   StreamSubscription? _chatSubscription;
   StreamSubscription? _currentRideSubscription;
   StreamSubscription? _walletSubscription;
+  StreamSubscription? _backgroundLocationSubscription;
   UserModel? _user;
   DriverRideStatus _status = DriverRideStatus.idle;
   Map<String, dynamic>? _currentRideData;
@@ -73,28 +74,63 @@ class DriverRideProvider extends ChangeNotifier {
   ll.LatLng? get dropoffLatLng => _point(_currentRideData?['dropoff_latitude'], _currentRideData?['dropoff_longitude']);
 
   void updateLocation(Position position, String userId, bool isOnline) {
-    _currentLocation = ll.LatLng(position.latitude, position.longitude);
-    _currentBearing = position.heading;
+    _persistLocation(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      heading: position.heading,
+      userId: userId,
+      isOnline: isOnline,
+    );
+  }
+
+  void _handleBackgroundLocation(Map<String, dynamic> event) {
+    final latitude = (event['latitude'] as num?)?.toDouble();
+    final longitude = (event['longitude'] as num?)?.toDouble();
+    final heading = (event['bearing'] as num?)?.toDouble() ?? 0;
+    final userId = _db.auth.currentUser?.id;
+    if (latitude == null || longitude == null || userId == null) return;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
+    _persistLocation(
+      latitude: latitude,
+      longitude: longitude,
+      heading: heading,
+      userId: userId,
+      isOnline: true,
+    );
+  }
+
+  void _persistLocation({
+    required double latitude,
+    required double longitude,
+    required double heading,
+    required String userId,
+    required bool isOnline,
+  }) {
+    _currentLocation = ll.LatLng(latitude, longitude);
+    _currentBearing = heading;
     final driverId = _db.auth.currentUser?.id;
-    if (driverId == null) return;
+    if (driverId == null || driverId != userId) return;
     if (_currentRideData != null) {
       _db.from('ride_requests').update({
-        'driver_latitude': position.latitude,
-        'driver_longitude': position.longitude,
-        'driver_heading': position.heading,
+        'driver_latitude': latitude,
+        'driver_longitude': longitude,
+        'driver_heading': heading,
       }).eq('id', _currentRideData!['id'].toString()).then((_) {});
     }
     if (isOnline && !isBlocked) {
       _db.from('driver_locations').upsert({
-        'driver_id': driverId, 'latitude': position.latitude,
-        'longitude': position.longitude, 'heading': position.heading,
+        'driver_id': driverId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'heading': heading,
         'recorded_at': DateTime.now().toUtc().toIso8601String(),
       }).then((_) {});
       _db.from('driver_profiles').update({
         'is_online': true,
         'availability_status': _status == DriverRideStatus.idle ? 'idle' : 'on_trip',
         'vehicle_type': Vehicle.getStandardizedType(_user?.vehicleType ?? 'Car'),
-        'region': _user?.region, 'city': _user?.city,
+        'region': _user?.region,
+        'city': _user?.city,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('user_id', driverId).then((_) {});
     } else {
@@ -288,17 +324,33 @@ class DriverRideProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _startLocationService() async {
+  Future<void> _startLocationService() async {
     try {
       final service = FlutterBackgroundService();
-      if (!await service.isRunning()) await service.startService();
-    } catch (e) { debugPrint('Background location service failed: $e'); }
+      await _backgroundLocationSubscription?.cancel();
+      _backgroundLocationSubscription = service.on('update').listen((event) {
+        if (event == null || _user == null || isBlocked) return;
+        _handleBackgroundLocation(Map<String, dynamic>.from(event));
+      });
+      if (!await service.isRunning()) {
+        await service.startService();
+      }
+    } catch (e) {
+      debugPrint('Background location service failed: $e');
+    }
+  }
+
+  Future<void> _stopLocationService() async {
+    await _backgroundLocationSubscription?.cancel();
+    _backgroundLocationSubscription = null;
+    FlutterBackgroundService().invoke('stopService');
   }
 
   void updateStatus(String userId, String status, ll.LatLng? location, String vehicleType, {String? region, String? city}) {
     final id = _db.auth.currentUser?.id;
     if (id == null) return;
     if (status == 'offline' || isBlocked) {
+      _stopLocationService();
       _db.from('driver_profiles').update({
         'is_online': false, 'availability_status': 'offline',
       }).eq('user_id', id).then((_) {});
@@ -324,6 +376,7 @@ class DriverRideProvider extends ChangeNotifier {
   void dispose() {
     _tripTimer?.cancel(); _requestsSubscription?.cancel(); _chatSubscription?.cancel();
     _walletSubscription?.cancel(); _currentRideSubscription?.cancel();
+    _backgroundLocationSubscription?.cancel();
     _rideRequestController.close(); super.dispose();
   }
 }
