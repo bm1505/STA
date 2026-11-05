@@ -42,6 +42,7 @@ create table if not exists public.fleet_vehicles (
   vehicle_type text not null,
   manufacture_year integer,
   passenger_capacity integer not null default 4 check (passenger_capacity > 0),
+  current_odometer_km numeric(14,2),
   color text,
   status text not null default 'active' check (status in ('active','maintenance','inactive')),
   created_at timestamptz not null default now(),
@@ -336,8 +337,13 @@ begin
   end if;
   select * into v_vehicle from public.fleet_vehicles where id=p_vehicle_id and organization_id=p_org_id and status='active';
   if not found then raise exception 'Active vehicle not found in this organization'; end if;
-  if not exists(select 1 from public.driver_profiles where user_id=p_driver_id and verification_status='verified') then
-    raise exception 'Only verified drivers can be assigned';
+  if not exists(
+    select 1 from public.driver_profiles dp
+    join public.profiles p on p.id=dp.user_id
+    where dp.user_id=p_driver_id and dp.verification_status='verified'
+      and p.role='driver' and p.is_active=true
+  ) then
+    raise exception 'Only active verified drivers can be assigned';
   end if;
   if exists(select 1 from public.fleet_vehicle_assignments where driver_id=p_driver_id and status='active') then
     raise exception 'Driver already has an active vehicle assignment';
@@ -375,9 +381,17 @@ begin
   end if;
   select driver_id into v_driver from public.fleet_vehicle_assignments
   where vehicle_id=p_vehicle_id and status='active' limit 1;
+  if p_odometer_km is not null and exists(
+    select 1 from public.fleet_vehicles
+    where id=p_vehicle_id and current_odometer_km is not null and p_odometer_km < current_odometer_km
+  ) then raise exception 'Odometer reading cannot decrease'; end if;
   insert into public.fleet_fuel_logs(organization_id,vehicle_id,driver_id,quantity_liters,unit_price,odometer_km,fuel_station,logged_by)
   values(p_org_id,p_vehicle_id,v_driver,p_quantity_liters,p_unit_price,p_odometer_km,p_fuel_station,auth.uid())
   returning id into v_id;
+  if p_odometer_km is not null then
+    update public.fleet_vehicles set current_odometer_km=p_odometer_km,updated_at=now()
+    where id=p_vehicle_id;
+  end if;
   return v_id;
 end;
 $$;
@@ -406,6 +420,8 @@ begin
   ) values (
     p_org_id,p_vehicle_id,trim(p_maintenance_type),p_description,greatest(coalesce(p_cost,0),0),p_odometer_km,p_scheduled_at,auth.uid()
   ) returning id into v_id;
+  update public.fleet_vehicles set status='maintenance',updated_at=now()
+  where id=p_vehicle_id;
   return v_id;
 end;
 $$;
@@ -505,6 +521,15 @@ begin
   update public.fleet_maintenance_records
   set status=p_status,completed_at=case when p_status='completed' then now() else completed_at end
   where id=p_record_id;
+  if p_status in ('completed','cancelled') then
+    update public.fleet_vehicles v
+    set status=case when exists(
+      select 1 from public.fleet_maintenance_records m
+      where m.vehicle_id=v.id and m.status in ('scheduled','in_progress')
+    ) then 'maintenance' else 'active' end,
+    updated_at=now()
+    where v.id=(select vehicle_id from public.fleet_maintenance_records where id=p_record_id);
+  end if;
 end;
 $$;
 revoke all on function public.sta_set_vehicle_maintenance_status(uuid,text) from public;
