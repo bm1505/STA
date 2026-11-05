@@ -228,7 +228,7 @@ language plpgsql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','finance','dispatcher','viewer']) then
     raise exception 'Organization management access required' using errcode = '42501';
@@ -242,7 +242,7 @@ begin
   where m.organization_id=p_org_id
   order by case when m.role='owner' then 0 when m.role='manager' then 1 else 2 end,m.joined_at;
 end;
-$;
+$$;
 revoke all on function public.sta_list_org_members(uuid) from public;
 grant execute on function public.sta_list_org_members(uuid) to authenticated;
 
@@ -252,7 +252,7 @@ language plpgsql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager']) then
     raise exception 'Organization manager access required' using errcode = '42501';
@@ -275,7 +275,7 @@ begin
   order by p.full_name
   limit 20;
 end;
-$;
+$$;
 revoke all on function public.sta_search_org_users(uuid,text) from public;
 grant execute on function public.sta_search_org_users(uuid,text) to authenticated;
 
@@ -286,7 +286,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager']) then
     raise exception 'Organization owner or manager access required' using errcode = '42501';
@@ -301,7 +301,7 @@ begin
   values(p_org_id,p_user_id,p_role,'active')
   on conflict(organization_id,user_id) do update set role=excluded.role,status='active';
 end;
-$;
+$$;
 revoke all on function public.sta_add_org_member(uuid,uuid,text) from public;
 grant execute on function public.sta_add_org_member(uuid,uuid,text) to authenticated;
 
@@ -462,7 +462,7 @@ language plpgsql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher','viewer']) then
     raise exception 'Fleet monitoring access required' using errcode = '42501';
@@ -478,7 +478,7 @@ begin
   where a.organization_id=p_org_id and a.status='active'
   order by a.assigned_at desc;
 end;
-$;
+$$;
 revoke all on function public.sta_list_org_assignments(uuid) from public;
 grant execute on function public.sta_list_org_assignments(uuid) to authenticated;
 
@@ -487,7 +487,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare v_assignment public.fleet_vehicle_assignments;
 begin
   select * into v_assignment from public.fleet_vehicle_assignments
@@ -507,7 +507,7 @@ begin
   where organization_id=v_assignment.organization_id
     and user_id=v_assignment.driver_id and role='driver';
 end;
-$;
+$$;
 revoke all on function public.sta_unassign_driver_vehicle(uuid) from public;
 grant execute on function public.sta_unassign_driver_vehicle(uuid) to authenticated;
 
@@ -637,7 +637,7 @@ language plpgsql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher','viewer']) then
     raise exception 'Fleet monitoring access required' using errcode = '42501';
@@ -659,7 +659,7 @@ begin
     and dp.is_online=true and dl.recorded_at > now()-interval '5 minutes'
   order by dl.recorded_at desc;
 end;
-$;
+$$;
 revoke all on function public.sta_org_live_locations(uuid) from public;
 grant execute on function public.sta_org_live_locations(uuid) to authenticated;
 
@@ -814,7 +814,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   v_driver public.driver_profiles;
   v_assigned_vehicle public.fleet_vehicles;
@@ -862,7 +862,7 @@ begin
     delete from public.driver_locations where driver_id=auth.uid();
   end if;
 end;
-$;
+$$;
 revoke all on function public.sta_set_driver_presence(text,text,text,text) from public;
 grant execute on function public.sta_set_driver_presence(text,text,text,text) to authenticated;
 
