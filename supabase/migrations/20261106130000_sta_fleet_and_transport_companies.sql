@@ -577,8 +577,6 @@ before insert on public.trips
 for each row execute function public.sta_sync_trip_vehicle();
 
 -- Platform administrators can audit fleet records without becoming organization members.
-create policy transport_orgs_admin_read on public.transport_organizations
-  for select to authenticated using (public.sta_is_active_admin());
 create policy org_members_admin_read on public.organization_members
   for select to authenticated using (public.sta_is_active_admin());
 create policy transport_branches_admin_read on public.transport_branches
