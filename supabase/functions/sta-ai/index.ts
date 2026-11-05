@@ -57,6 +57,10 @@ serve(async (req) => {
     if (action === "health") {
       return Response.json({ configured: Boolean(Deno.env.get("GEMINI_API_KEY")) }, { headers: corsHeaders });
     }
+    const { data: withinAiQuota, error: aiQuotaError } = await supabase.rpc("sta_consume_ai_quota");
+    if (aiQuotaError || withinAiQuota !== true) {
+      return Response.json({ error: "AI request limit reached. Try again shortly." }, { status: 429, headers: corsHeaders });
+    }
     if (action === "document_review") {
       const { data: profile, error: profileError } = await supabase
         .from("profiles").select("role,is_active").eq("id", authData.user.id).maybeSingle();
