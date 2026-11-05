@@ -148,9 +148,9 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                 ),
               ),
               children: [
-                // Google Hybrid Layer (Satellite + Streets + Labels) - Exact Google Look
+                // OpenStreetMap tile layer
                 TileLayer(
-                  urlTemplate: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                  urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                   userAgentPackageName: 'com.sta.ride',
                   maxNativeZoom: 20,
                   maxZoom: 20,
