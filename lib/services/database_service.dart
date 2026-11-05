@@ -102,8 +102,16 @@ class DatabaseService {
         path, bytes,
         fileOptions: const FileOptions(upsert: true),
       );
-      final url = _db.storage.from('driver-documents').getPublicUrl(path);
       final field = _profileField(type);
+      // Keep identity documents private: persist only the bucket object path.
+      // Profile and vehicle photos retain their existing public-URL behavior
+      // until every image consumer has been migrated to signed URLs.
+      final isPrivateDocument = const {
+        'licenseUrl', 'insuranceUrl', 'nationalIdUrl',
+      }.contains(field);
+      final url = isPrivateDocument
+          ? 'pg://$path'
+          : _db.storage.from('driver-documents').getPublicUrl(path);
       if (field != null) {
         final profile = await _db.from('profiles')
             .select('user_data').eq('id', userId).maybeSingle();
