@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Ride {
   final String id;
@@ -107,22 +106,22 @@ class Ride {
       createdAt: json['createdAt'] != null
           ? (json['createdAt'] is String
               ? DateTime.parse(json['createdAt'])
-              : (json['createdAt'] as Timestamp).toDate())
+              : DateTime.parse(json['createdAt'].toString()))
           : DateTime.now(),
       acceptedAt: json['acceptedAt'] != null
           ? (json['acceptedAt'] is String
               ? DateTime.parse(json['acceptedAt'])
-              : (json['acceptedAt'] as Timestamp).toDate())
+              : DateTime.parse(json['acceptedAt'].toString()))
           : null,
       startedAt: json['startedAt'] != null
           ? (json['startedAt'] is String
               ? DateTime.parse(json['startedAt'])
-              : (json['startedAt'] as Timestamp).toDate())
+              : DateTime.parse(json['startedAt'].toString()))
           : null,
       completedAt: json['completedAt'] != null
           ? (json['completedAt'] is String
               ? DateTime.parse(json['completedAt'])
-              : (json['completedAt'] as Timestamp).toDate())
+              : DateTime.parse(json['completedAt'].toString()))
           : null,
       cancellationReason: json['cancellationReason'],
       paymentMethod: PaymentMethod.values.firstWhere(
