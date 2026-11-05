@@ -827,9 +827,10 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
                   row("Supabase Database", health['database'] == true, "Connected", "Unavailable"),
                   row("STA AI Service", health['ai'] == true, "Configured", "Missing server secret or deployment"),
                   row("Traffic-aware Routing", health['traffic'] == true, "Configured", "Missing server key or deployment"),
-                  row("Push Notifications", health['push'] == true, "Configured", "Provider not configured"),
+                  row("In-app Notifications", health['in_app_notifications'] == true, "Available", "Not deployed"),
+                  row("Remote Push Notifications", health['push'] == true, "Configured", "Provider not configured"),
                   row("M-Pesa Payment Gateway", health['payments'] == true, "Configured", "Provider not configured"),
-                  row("Fleet & Company Management", health['fleet'] == true, "Configured", "Module not yet implemented"),
+                  row("Fleet & Company Management", health['fleet'] == true, "Available", "Not deployed"),
                 ],
               ),
             );
