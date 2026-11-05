@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -24,6 +25,8 @@ class _AdminDashboardFragmentState extends State<AdminDashboardFragment> {
   bool _isLoading = true;
 
   final List<FlSpot> _revenueSpots = [];
+  StreamSubscription<List<Map<String, dynamic>>>? _tripSubscription;
+  StreamSubscription<List<UserModel>>? _profileSubscription;
 
   @override
   void initState() {
@@ -32,7 +35,24 @@ class _AdminDashboardFragmentState extends State<AdminDashboardFragment> {
   }
 
   void _initDashboardStreams() {
+    _tripSubscription = DatabaseService.instance.getAdminTripsStream()
+        .listen((_) => _loadDashboardData(), onError: (error) {
+      debugPrint('Admin dashboard trip stream failed: $error');
+    });
+    _profileSubscription = DatabaseService.instance.getAdminProfilesStream()
+        .listen((_) {
+      if (mounted) setState(() {});
+    }, onError: (error) {
+      debugPrint('Admin dashboard profile stream failed: $error');
+    });
     _loadDashboardData();
+  }
+
+  @override
+  void dispose() {
+    _tripSubscription?.cancel();
+    _profileSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadDashboardData() async {
