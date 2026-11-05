@@ -30,6 +30,19 @@ begin
   if p_radius_meters is null or p_radius_meters <= 0 or p_radius_meters > 100000 then
     raise exception 'Search radius must be between 1 and 100000 metres';
   end if;
+  if not public.sta_is_active_admin() and not exists (
+    select 1 from public.ride_requests r
+    where r.rider_id = auth.uid()
+      and r.status = 'requesting'
+      and r.created_at > now() - interval '15 minutes'
+      and 2 * 6371000 * asin(sqrt(least(1.0,
+        power(sin(radians(r.pickup_latitude - p_latitude) / 2), 2)
+        + cos(radians(p_latitude)) * cos(radians(r.pickup_latitude))
+        * power(sin(radians(r.pickup_longitude - p_longitude) / 2), 2)
+      ))) <= 100
+  ) then
+    raise exception 'An active ride request at this pickup location is required' using errcode = '42501';
+  end if;
 
   return query
   with candidates as (
