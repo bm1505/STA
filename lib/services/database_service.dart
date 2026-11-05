@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user.dart';
+import '../models/vehicle.dart';
 import 'otp_service.dart';
 
 class DatabaseService {
@@ -171,6 +172,27 @@ class DatabaseService {
   Future<void> recordTrip(Map<String, dynamic> tripData) async {
     await _db.rpc('sta_record_trip', params: {'p_trip_data': tripData});
   }
+  Future<Map<String, dynamic>> estimateFare({
+    required String vehicleType,
+    required double distanceMeters,
+    required int durationSeconds,
+    required double pickupLatitude,
+    required double pickupLongitude,
+  }) async {
+    final result = await _db.rpc('sta_estimate_fare', params: {
+      'p_vehicle_type': Vehicle.getStandardizedType(vehicleType),
+      'p_distance_meters': distanceMeters,
+      'p_duration_seconds': durationSeconds,
+      'p_pickup_latitude': pickupLatitude,
+      'p_pickup_longitude': pickupLongitude,
+    });
+    if (result is List && result.isNotEmpty && result.first is Map) {
+      return Map<String, dynamic>.from(result.first as Map);
+    }
+    if (result is Map) return Map<String, dynamic>.from(result);
+    throw StateError('Fare estimation service returned no result.');
+  }
+
 
   Stream<Map<String, dynamic>?> getWalletStream(String userId) =>
       _db.from('wallets').stream(primaryKey: ['user_id'])
