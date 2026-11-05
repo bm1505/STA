@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
+/// Background location collector for the driver app.
+///
+/// The background isolate only collects device location and forwards it to the
+/// foreground app. Supabase writes are intentionally performed by
+/// DriverRideProvider in the authenticated foreground isolate so the active
+/// Supabase session and RLS context remain authoritative.
 @pragma('vm:entry-point')
 class LocationService {
   @pragma('vm:entry-point')
@@ -32,20 +36,19 @@ class LocationService {
 
   @pragma('vm:entry-point')
   static Future<bool> onIosBackground(ServiceInstance service) async {
+    // iOS background execution is controlled by the operating system.
     return true;
   }
 
   @pragma('vm:entry-point')
   static void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
-    await Firebase.initializeApp();
 
     if (service is AndroidServiceInstance) {
       service.setAsForegroundService();
-      
       service.setForegroundNotificationInfo(
-        title: "STA Driver - Online",
-        content: "Mfumo wa eneo unaanza...",
+        title: 'STA Driver - Online',
+        content: 'Mfumo wa eneo unaanza...',
       );
 
       service.on('setAsForeground').listen((event) {
@@ -61,58 +64,48 @@ class LocationService {
       service.stopSelf();
     });
 
-    String? regionCache;
-    String? vehicleTypeCache;
-
-    Geolocator.getPositionStream(
+    StreamSubscription<Position>? positionSubscription;
+    positionSubscription = Geolocator.getPositionStream(
       locationSettings: AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 5,
-        forceLocationManager: true,
         intervalDuration: const Duration(seconds: 5),
       ),
-    ).listen((Position position) async {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+    ).listen(
+      (Position position) {
+        // Forward only device telemetry. The foreground provider validates
+        // the signed-in driver and persists it through Supabase RLS.
+        service.invoke('update', {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'bearing': position.heading,
+          'speed': position.speed,
+          'accuracy': position.accuracy,
+          'recordedAt': DateTime.now().toUtc().toIso8601String(),
+        });
 
-      if (regionCache == null || vehicleTypeCache == null) {
-        final driverDoc = await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.uid)
-            .get();
-        if (driverDoc.exists) {
-          regionCache = driverDoc.data()?['region'] ?? 'Arusha';
-          vehicleTypeCache = driverDoc.data()?['vehicleType'] ?? 'Car';
+        if (service is AndroidServiceInstance) {
+          service.isForegroundService().then((isForeground) {
+            if (isForeground) {
+              service.setForegroundNotificationInfo(
+                title: 'STA Driver - Online',
+                content: 'Upo tayari kupokea safari.',
+              );
+            }
+          });
         }
-      }
+      },
+      onError: (Object error) {
+        // Do not terminate the foreground service on a transient GPS error.
+        service.invoke('locationError', {'message': error.toString()});
+      },
+      onDone: () {
+        positionSubscription?.cancel();
+      },
+    );
 
-      await FirebaseFirestore.instance
-          .collection('drivers_online')
-          .doc(user.uid)
-          .set({
-        'id': user.uid,
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'bearing': position.heading,
-        'lastUpdate': FieldValue.serverTimestamp(),
-        'region': regionCache ?? 'Arusha',
-        'vehicleType': vehicleTypeCache ?? 'Car',
-      }, SetOptions(merge: true));
-
-      service.invoke('update', {
-        "latitude": position.latitude,
-        "longitude": position.longitude,
-        "bearing": position.heading,
-      });
-
-      if (service is AndroidServiceInstance) {
-        if (await service.isForegroundService()) {
-          service.setForegroundNotificationInfo(
-            title: "STA Driver - Online",
-            content: "Upo tayari kupokea safari.",
-          );
-        }
-      }
+    service.on('stopService').listen((event) {
+      positionSubscription?.cancel();
     });
   }
 }
