@@ -226,7 +226,8 @@ create or replace function public.sta_set_ride_status(
   p_fare numeric default null,
   p_distance_meters numeric default null,
   p_duration_seconds integer default null,
-  p_payment_status text default null
+  p_payment_status text default null,
+  p_cancellation_reason text default null
 )
 returns public.ride_requests
 language plpgsql
@@ -305,7 +306,11 @@ begin
        and auth.uid() not in (v_ride.rider_id, v_ride.driver_id) then
       raise exception 'Not authorized to cancel this ride' using errcode = '42501';
     end if;
-    update public.ride_requests set status = 'cancelled', cancelled_at = now(), updated_at = now()
+    update public.ride_requests
+    set status = 'cancelled',
+        cancelled_at = now(),
+        ride_data = coalesce(ride_data,'{}'::jsonb) || jsonb_build_object('cancellationReason',p_cancellation_reason),
+        updated_at = now()
     where id = p_ride_id returning * into v_ride;
     if v_ride.driver_id is not null then
       update public.driver_profiles set availability_status = 'idle', updated_at = now()
@@ -352,8 +357,8 @@ begin
   return v_ride;
 end;
 $$;
-revoke all on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text) from public;
-grant execute on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text) to authenticated, service_role;
+revoke all on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text,text) from public;
+grant execute on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text,text) to authenticated, service_role;
 
 -- Server-side trip ledger: one trip and one wallet entry per completed, paid ride.
 create or replace function public.sta_record_trip(p_trip_data jsonb)
