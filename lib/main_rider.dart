@@ -6,11 +6,13 @@ import 'models/user.dart';
 import 'services/notification_service.dart';
 import 'services/location_service.dart';
 import 'services/postgres_service.dart';
+import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    await StaSupabase.initialize();
     if (kIsWeb) {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
