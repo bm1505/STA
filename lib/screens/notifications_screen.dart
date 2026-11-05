@@ -7,14 +7,30 @@ class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   Future<void> _markAllRead() async {
-    await Supabase.instance.client.rpc('sta_mark_all_notifications_read');
+    try {
+      await Supabase.instance.client.rpc('sta_mark_all_notifications_read');
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update notifications: $error')),
+        );
+      }
+    }
   }
 
   Future<void> _markRead(String id) async {
-    await Supabase.instance.client.rpc(
-      'sta_mark_notification_read',
-      params: {'p_notification_id': id},
-    );
+    try {
+      await Supabase.instance.client.rpc(
+        'sta_mark_notification_read',
+        params: {'p_notification_id': id},
+      );
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not mark notification as read: $error')),
+        );
+      }
+    }
   }
 
   @override
