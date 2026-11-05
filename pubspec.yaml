@@ -22,6 +22,7 @@ dependencies:
   provider: ^6.0.5
   web: ^1.0.0
   postgres: ^3.0.0
+  supabase_flutter: ^2.9.1
 
   # Maps
   flutter_map: ^8.3.0
