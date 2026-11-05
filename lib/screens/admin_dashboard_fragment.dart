@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -33,167 +32,47 @@ class _AdminDashboardFragmentState extends State<AdminDashboardFragment> {
   }
 
   void _initDashboardStreams() {
-    // Real-time chart and stats updates
-    FirebaseFirestore.instance.collection('trips').snapshots().listen((_) {
-      if (mounted) {
-        _loadDashboardData();
-        setState(() {}); // Trigger stats stream map
-      }
-    });
-
-    // Trigger UI update when users change
-    FirebaseFirestore.instance.collection('drivers').snapshots().listen((_) {
-      if (mounted) setState(() {});
-    });
-    
-    FirebaseFirestore.instance.collection('riders').snapshots().listen((_) {
-      if (mounted) setState(() {});
-    });
+    _loadDashboardData();
   }
 
   Future<void> _loadDashboardData() async {
     try {
-      // Fetch data for the last 7 days
+      final trips = await DatabaseService.instance.getAllTrips(adminView: true);
       final now = DateTime.now();
-      final lastWeek = now.subtract(const Duration(days: 7));
-      
-      final tripsQuery = await FirebaseFirestore.instance
-          .collection('trips')
-          .where('createdAt', isGreaterThan: Timestamp.fromDate(lastWeek))
-          .get();
-
-      Map<int, double> dailyRevenue = {};
-      // Initialize with 0 for last 7 days
-      for (int i = 0; i <= 6; i++) {
-        dailyRevenue[i] = 0.0;
-      }
-
-      for (var doc in tripsQuery.docs) {
-        final data = doc.data();
-        final fare = (data['fare'] as num?)?.toDouble() ?? 0.0;
-        final timestamp = (data['createdAt'] as Timestamp?)?.toDate() ?? now;
-        
-        // Calculate days ago
+      final dailyRevenue = <int, double>{for (int i = 0; i <= 6; i++) i: 0.0};
+      for (final trip in trips) {
+        final fare = (trip['fare'] as num?)?.toDouble() ?? 0.0;
+        final timestamp = DateTime.tryParse(trip['timestamp']?.toString() ?? '');
+        if (timestamp == null) continue;
         final difference = now.difference(timestamp).inDays;
         if (difference >= 0 && difference <= 6) {
-          // index 6 is today, 0 is 6 days ago
-          int index = 6 - difference;
+          final index = 6 - difference;
           dailyRevenue[index] = (dailyRevenue[index] ?? 0) + fare;
         }
       }
-
-      if (mounted) {
-        setState(() {
-          _revenueSpots.clear();
-          dailyRevenue.forEach((day, revenue) {
-            _revenueSpots.add(FlSpot(day.toDouble(), revenue / 1000)); // Revenue in thousands for better scaling
-          });
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading chart data: $e");
+      if (!mounted) return;
+      setState(() {
+        _revenueSpots
+          ..clear()
+          ..addAll(dailyRevenue.entries.map(
+            (entry) => FlSpot(entry.key.toDouble(), entry.value / 1000),
+          ));
+        _isLoading = false;
+      });
+    } catch (error) {
+      debugPrint('STA dashboard chart load failed: $error');
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Stream<Map<String, dynamic>> _getStatsStream() {
-    // Using a combined approach - this will re-run whenever trips change
-    // And our listeners in initState will force a rebuild when drivers/riders change
-    return FirebaseFirestore.instance
-        .collection('trips')
-        .snapshots()
-        .asyncMap((tripsSnapshot) async {
-      final driversSnapshot =
-          await FirebaseFirestore.instance.collection('drivers').get();
-      final ridersSnapshot =
-          await FirebaseFirestore.instance.collection('riders').get();
-      final activeTripsSnap = await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .where('status', whereIn: ['accepted', 'arrived', 'inProgress'])
-          .get();
+  Stream<Map<String, dynamic>> _getStatsStream() =>
+      DatabaseService.instance.getAdminStatsStream();
 
-      double totalFare = 0;
-      double todayFare = 0;
-      DateTime now = DateTime.now();
-      DateTime startOfToday = DateTime(now.year, now.month, now.day);
+  Stream<List<UserModel>> _getRecentUsersStream() =>
+      DatabaseService.instance.getAdminRecentUsersStream();
 
-      for (var doc in tripsSnapshot.docs) {
-        double fare = (doc.data()['fare'] as num?)?.toDouble() ?? 0.0;
-        totalFare += fare;
-        
-        // Calculate Today's Fare
-        Timestamp? ts = doc.data()['createdAt'] as Timestamp?;
-        if (ts != null && ts.toDate().isAfter(startOfToday)) {
-          todayFare += fare;
-        }
-      }
-
-      // Fetch Actual Commissions from transactions
-      final commissionsSnap = await FirebaseFirestore.instance
-          .collection('transactions')
-          .where('type', isEqualTo: 'commission')
-          .get();
-      
-      double totalComm = 0;
-      double todayComm = 0;
-      for (var doc in commissionsSnap.docs) {
-        double amt = (doc.data()['amount'] as num?)?.toDouble() ?? 0.0;
-        totalComm += amt;
-        Timestamp? ts = doc.data()['timestamp'] as Timestamp?;
-        if (ts != null && ts.toDate().isAfter(startOfToday)) {
-          todayComm += amt;
-        }
-      }
-
-      return {
-        'drivers': driversSnapshot.size,
-        'riders': ridersSnapshot.size,
-        'totalTrips': tripsSnapshot.size,
-        'activeTrips': activeTripsSnap.size,
-        'totalFare': totalFare,
-        'todayFare': todayFare,
-        'totalCommissions': totalComm,
-        'todayCommissions': todayComm,
-      };
-    });
-  }
-
-  Stream<List<UserModel>> _getRecentUsersStream() {
-    // Combine riders and drivers for recent activity, triggered by either
-    return FirebaseFirestore.instance
-        .collection('drivers')
-        .orderBy('createdAt', descending: true)
-        .limit(5)
-        .snapshots()
-        .asyncMap((driverSnap) async {
-      final riderSnap = await FirebaseFirestore.instance
-          .collection('riders')
-          .orderBy('createdAt', descending: true)
-          .limit(5)
-          .get();
-
-      List<UserModel> users = [];
-      users.addAll(driverSnap.docs
-          .map((d) => UserModel.fromJson({...d.data(), 'id': d.id})));
-      users.addAll(riderSnap.docs
-          .map((d) => UserModel.fromJson({...d.data(), 'id': d.id})));
-
-      // Sort by createdAt descending
-      users.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return users.take(8).toList();
-    });
-  }
-
-  Stream<List<UserModel>> _getPendingDriversStream() {
-    return FirebaseFirestore.instance
-        .collection('drivers')
-        .where('verificationStatus', isEqualTo: 'pending')
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromJson({...doc.data(), 'id': doc.id}))
-            .toList());
-  }
+  Stream<List<UserModel>> _getPendingDriversStream() =>
+      DatabaseService.instance.getPendingDriversStream();
 
   @override
   Widget build(BuildContext context) {
