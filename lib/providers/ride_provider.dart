@@ -74,7 +74,8 @@ class RideProvider extends ChangeNotifier {
     required String userId, required String riderName, required String riderPhone,
     required double pickupLat, required double pickupLng, required String pickupAddress,
     required double dropoffLat, required double dropoffLng, required String dropoffAddress,
-    String? region, String? city, String vehicleType = 'Car', double fare = 0.0,
+    required double distanceMeters, required int durationSeconds,
+    String? region, String? city, String vehicleType = 'Car',
     bool femaleOnly = false, String? pickupImage, String? riderImage,
     bool isGuestRide = false, String? guestName, String? guestPhone,
   }) async {
@@ -84,28 +85,38 @@ class RideProvider extends ChangeNotifier {
       if (effectiveUserId.isEmpty || _db.auth.currentUser?.id != effectiveUserId) {
         throw Exception('Mtumiaji hayatambuliki. Tafadhali ingia tena.');
       }
-      final row = await _db.from('ride_requests').insert({
-        'rider_id': effectiveUserId,
-        'pickup_latitude': pickupLat, 'pickup_longitude': pickupLng,
-        'pickup_label': pickupAddress,
-        'dropoff_latitude': dropoffLat, 'dropoff_longitude': dropoffLng,
-        'dropoff_label': dropoffAddress,
-        'vehicle_type': Vehicle.getStandardizedType(vehicleType),
-        'estimated_fare': fare,
-        'ride_data': {
-          'riderName': riderName, 'riderPhone': riderPhone,
+      if (distanceMeters <= 0 || durationSeconds <= 0) {
+        throw StateError('Njia na muda wa safari lazima vikadiriwe kabla ya kuomba safari.');
+      }
+      final result = await _db.rpc('sta_create_ride_request', params: {
+        'p_pickup_latitude': pickupLat,
+        'p_pickup_longitude': pickupLng,
+        'p_pickup_label': pickupAddress,
+        'p_dropoff_latitude': dropoffLat,
+        'p_dropoff_longitude': dropoffLng,
+        'p_dropoff_label': dropoffAddress,
+        'p_vehicle_type': Vehicle.getStandardizedType(vehicleType),
+        'p_distance_meters': distanceMeters,
+        'p_duration_seconds': durationSeconds,
+        'p_ride_data': {
           'riderImage': riderImage, 'region': region, 'city': city,
           'femaleOnly': femaleOnly, 'pickupImage': pickupImage,
           'isGuestRide': isGuestRide, 'guestName': guestName, 'guestPhone': guestPhone,
         },
-      }).select().single();
+      });
+      if (result is! Map) throw StateError('Server did not return the created ride.');
+      final row = Map<String, dynamic>.from(result);
       final id = row['id'].toString();
+      final serverFare = (row['estimated_fare'] as num?)?.toDouble();
+      if (serverFare == null || serverFare <= 0) {
+        throw StateError('Server did not return a valid fare estimate.');
+      }
       _currentRide = Ride(
         id: id, passengerId: effectiveUserId, driverId: '',
         pickupLocation: Location(latitude: pickupLat, longitude: pickupLng, address: pickupAddress),
         dropoffLocation: Location(latitude: dropoffLat, longitude: dropoffLng, address: dropoffAddress),
-        fare: fare, distance: 0, duration: 0, vehicleType: vehicleType,
-        status: RideStatus.requesting, createdAt: DateTime.parse(row['created_at']),
+        fare: serverFare, distance: distanceMeters / 1000, duration: (durationSeconds / 60).round(), vehicleType: vehicleType,
+        status: RideStatus.requesting, createdAt: DateTime.parse(row['created_at'].toString()),
         paymentMethod: PaymentMethod.cash, isGuestRide: isGuestRide,
         guestName: guestName, guestPhone: guestPhone,
       );
@@ -172,10 +183,9 @@ class RideProvider extends ChangeNotifier {
       }, onError: (e) => debugPrint('Ride realtime error: $e'));
   }
 
+  // Ride status transitions are controlled by the assigned driver through sta_set_ride_status.
   Future<void> startRide() async {
-    if (_currentRide == null) return;
-    try { await _db.from('ride_requests').update({'status': 'in_progress'}).eq('id', _currentRide!.id); }
-    catch (e) { debugPrint('Start ride failed: $e'); }
+    debugPrint('Only the assigned driver can start a ride.');
   }
 
   Future<void> cancelRide() async {
