@@ -298,8 +298,8 @@ class _AdminTripHistoryScreenState extends State<AdminTripHistoryScreen> {
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return '';
     DateTime date;
-    if (timestamp is Timestamp) date = timestamp.toDate();
-    else if (timestamp is String) date = DateTime.tryParse(timestamp) ?? DateTime.now();
+    if (timestamp is DateTime) date = timestamp;
+    else if (timestamp is String) date = DateTime.tryParse(timestamp) ?? DateTime.fromMillisecondsSinceEpoch(0);
     else return '';
     return DateFormat('MMM d, HH:mm').format(date);
   }
