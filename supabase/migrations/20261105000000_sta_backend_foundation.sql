@@ -6,11 +6,12 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  role text not null check (role in ('rider', 'driver', 'admin', 'staff')),
+  role text not null check (role in ('rider', 'driver', 'admin', 'staff', 'it', 'support')),
   full_name text not null default '',
   email text,
   phone_number text,
   avatar_url text,
+  user_data jsonb not null default '{}'::jsonb,
   is_active boolean not null default true,
   email_verified_at timestamptz,
   created_at timestamptz not null default now(),
