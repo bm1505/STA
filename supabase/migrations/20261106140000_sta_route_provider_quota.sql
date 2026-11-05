@@ -32,3 +32,38 @@ end;
 $$;
 revoke all on function public.sta_consume_route_quota() from public;
 grant execute on function public.sta_consume_route_quota() to authenticated;
+
+-- A separate per-user quota protects the Gemini AI secret.
+create table if not exists public.ai_request_limits (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  window_start timestamptz not null,
+  request_count integer not null default 0
+);
+alter table public.ai_request_limits enable row level security;
+
+create or replace function public.sta_consume_ai_quota()
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_count integer;
+  v_window timestamptz := date_trunc('minute', now());
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode = '28000'; end if;
+  insert into public.ai_request_limits(user_id,window_start,request_count)
+  values(auth.uid(),v_window,1)
+  on conflict(user_id) do update
+  set window_start = case
+        when public.ai_request_limits.window_start < v_window then v_window
+        else public.ai_request_limits.window_start end,
+      request_count = case
+        when public.ai_request_limits.window_start < v_window then 1
+        else public.ai_request_limits.request_count + 1 end
+  returning request_count into v_count;
+  return v_count <= 20;
+end;
+$$;
+revoke all on function public.sta_consume_ai_quota() from public;
+grant execute on function public.sta_consume_ai_quota() to authenticated;
