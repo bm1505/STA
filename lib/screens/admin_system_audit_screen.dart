@@ -392,7 +392,7 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text("${data['totalRides'] ?? 0} RIDES", style: GoogleFonts.robotoMono(color: AppTheme.adminPrimary, fontWeight: FontWeight.w900, fontSize: 16)),
-                            Text("Rating: ${data['rating'] ?? '5.0'} ★", style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(data['rating'] == null ? "No rating yet" : "Rating: ${data['rating']} ★", style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ],
