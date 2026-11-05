@@ -431,6 +431,7 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
               _statCard("Active Rides", "trips", Icons.local_taxi_rounded, Colors.green),
               _statCard("Total Capital", "wallets", Icons.account_balance_wallet_rounded, Colors.orange),
               _statCard("System Alerts", "sos_alerts", Icons.warning_amber_rounded, Colors.redAccent),
+              _statCard("Safety Events", "safety_events", Icons.health_and_safety_outlined, Colors.deepOrangeAccent),
             ],
           ),
           const SizedBox(height: 30),
