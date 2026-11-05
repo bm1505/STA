@@ -503,6 +503,9 @@ class DatabaseService {
       case 'sos_alerts':
         return _db.from('sos_alerts').stream(primaryKey: ['id'])
             .map((rows) => rows.where((row) => row['status'] == 'active').length.toString());
+      case 'safety_events':
+        return _db.from('ride_safety_events').stream(primaryKey: ['id'])
+            .map((rows) => rows.where((row) => row['status'] == 'open').length.toString());
       default:
         throw ArgumentError('Unknown admin metric');
     }
@@ -524,6 +527,7 @@ class DatabaseService {
       'chat_messages': ['id'],
       'sos_alerts': ['id'],
       'ride_ratings': ['id'],
+      'ride_safety_events': ['id'],
       'ride_ratings': ['id'],
     };
     final keys = primaryKeys[tableName];
@@ -619,7 +623,7 @@ class DatabaseService {
     'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
     'trips', 'wallets', 'wallet_transactions', 'payments',
     'withdrawal_requests', 'notification_broadcasts', 'app_settings',
-    'chat_messages', 'sos_alerts', 'ride_ratings',
+    'chat_messages', 'sos_alerts', 'ride_ratings', 'ride_safety_events',
   ];
 
   Future<List<Map<String, dynamic>>> getTableData(String tableName) async {
