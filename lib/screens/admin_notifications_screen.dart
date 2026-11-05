@@ -44,7 +44,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Notification sent successfully to $_targetGroup!"),
+            content: Text("Notification delivered to the in-app inboxes for $_targetGroup."),
             backgroundColor: Colors.green,
           ),
         );
@@ -73,7 +73,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Push Notifications",
+            "In-app Notifications",
             style: GoogleFonts.poppins(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -81,7 +81,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
             ),
           ),
           Text(
-            "Send instant alerts to specific user groups",
+            "Deliver live alerts to selected users’ STA notification inboxes",
             style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14),
           ),
           const SizedBox(height: 40),
