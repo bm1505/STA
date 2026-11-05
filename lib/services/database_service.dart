@@ -229,13 +229,108 @@ class DatabaseService {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getAllTrips({String? driverId, String? riderId}) async {
-    if ((driverId == null || driverId.isEmpty) && (riderId == null || riderId.isEmpty)) return [];
+  Future<List<Map<String, dynamic>>> getAllTrips({
+    String? driverId,
+    String? riderId,
+    bool adminView = false,
+  }) async {
+    if ((driverId == null || driverId.isEmpty) &&
+        (riderId == null || riderId.isEmpty) && !adminView) return [];
     var query = _db.from('trips').select();
     if (driverId != null && driverId.isNotEmpty) query = query.eq('driver_id', driverId);
     if (riderId != null && riderId.isNotEmpty) query = query.eq('rider_id', riderId);
-    final rows = await query;
-    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    final rows = await query.order('created_at', ascending: false);
+    return _enrichTripRows(rows.map((r) => Map<String, dynamic>.from(r)).toList());
+  }
+
+  Stream<List<Map<String, dynamic>>> getDriverTripsStream(String driverId) =>
+      _db.from('trips').stream(primaryKey: ['id'])
+          .eq('driver_id', driverId)
+          .asyncMap((rows) => _enrichTripRows(rows.map((r) => Map<String, dynamic>.from(r)).toList()));
+
+  Stream<List<Map<String, dynamic>>> getAdminTripsStream() =>
+      _db.from('trips').stream(primaryKey: ['id'])
+          .asyncMap((rows) => _enrichTripRows(rows.map((r) => Map<String, dynamic>.from(r)).toList()));
+
+  Future<List<Map<String, dynamic>>> _enrichTripRows(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return rows;
+    final rideIds = rows.map((r) => r['ride_request_id']?.toString())
+        .whereType<String>().where((id) => id.isNotEmpty).toSet().toList();
+    final ridesById = <String, Map<String, dynamic>>{};
+    if (rideIds.isNotEmpty) {
+      final rides = await _db.from('ride_requests')
+          .select('id,pickup_label,dropoff_label,vehicle_type,ride_data,payment_status,estimated_fare,final_fare')
+          .inFilter('id', rideIds);
+      for (final ride in rides) {
+        ridesById[ride['id'].toString()] = Map<String, dynamic>.from(ride);
+      }
+    }
+    return rows.map((trip) {
+      final ride = ridesById[trip['ride_request_id']?.toString()] ?? <String, dynamic>{};
+      final rideData = ride['ride_data'] is Map
+          ? Map<String, dynamic>.from(ride['ride_data'] as Map)
+          : <String, dynamic>{};
+      final completedAt = trip['completed_at'] ?? trip['created_at'];
+      return {
+        ...trip,
+        'timestamp': completedAt,
+        'pickupAddress': ride['pickup_label'] ?? 'Unknown Location',
+        'dropoffAddress': ride['dropoff_label'] ?? 'Unknown Destination',
+        'pickup': ride['pickup_label'],
+        'dropoff': ride['dropoff_label'],
+        'vehicleType': ride['vehicle_type'],
+        'paymentStatus': ride['payment_status'],
+        'fare': trip['fare'] ?? ride['final_fare'] ?? ride['estimated_fare'] ?? 0,
+        'distance': ((trip['distance_meters'] as num?)?.toDouble() ?? 0) / 1000,
+        'duration': (((trip['duration_seconds'] as num?)?.toDouble() ?? 0) / 60).round(),
+        'riderName': rideData['riderName'] ?? '',
+        'driverName': rideData['driverName'] ?? '',
+        'riderId': trip['rider_id'],
+        'driverId': trip['driver_id'],
+      };
+    }).toList();
+  }
+
+  Stream<List<UserModel>> getAdminProfilesStream() =>
+      _db.from('profiles').stream(primaryKey: ['id'])
+          .map((rows) => rows.map(_userFromRow).toList());
+
+  Stream<List<Map<String, dynamic>>> getDriverRatingsStream(String driverId) =>
+      _db.from('ride_ratings').stream(primaryKey: ['id'])
+          .eq('driver_id', driverId)
+          .map((rows) => rows.map((r) => Map<String, dynamic>.from(r)).toList());
+
+  Future<void> allowDriverProfileEdit(String driverId) async {
+    final row = await _db.from('profiles').select('user_data')
+        .eq('id', driverId).single();
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
+    data['profileEditStatus'] = 'allowed';
+    await _db.from('profiles').update({'user_data': data}).eq('id', driverId);
+  }
+
+  Stream<List<Map<String, dynamic>>> getAdminTableStream(String tableName) {
+    const primaryKeys = {
+      'profiles': ['id'],
+      'driver_profiles': ['user_id'],
+      'driver_locations': ['driver_id'],
+      'ride_requests': ['id'],
+      'trips': ['id'],
+      'wallets': ['user_id'],
+      'wallet_transactions': ['id'],
+      'payments': ['id'],
+      'withdrawal_requests': ['id'],
+      'notification_broadcasts': ['id'],
+      'app_settings': ['key'],
+      'chat_messages': ['id'],
+      'sos_alerts': ['id'],
+      'ride_ratings': ['id'],
+    };
+    final keys = primaryKeys[tableName];
+    if (keys == null) throw ArgumentError('Table is not available in the STA admin explorer');
+    return _db.from(tableName).stream(primaryKey: keys)
+        .map((rows) => rows.map((r) => Map<String, dynamic>.from(r)).toList());
   }
 
   Future<String> getSetting(String key, String def) async {
