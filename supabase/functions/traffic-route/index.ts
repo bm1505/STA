@@ -1,5 +1,6 @@
 // Traffic-aware Google Routes adapter. Configure GOOGLE_ROUTES_API_KEY in Supabase Function secrets.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,20 @@ serve(async (req) => {
         { configured: Boolean(Deno.env.get("GOOGLE_ROUTES_API_KEY")) },
         { headers: corsHeaders },
       );
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const authorization = req.headers.get("Authorization") ?? "";
+    if (!supabaseUrl || !anonKey || !authorization) {
+      return Response.json({ error: "Routing service authentication is not configured" }, { status: 503, headers: corsHeaders });
+    }
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: withinQuota, error: quotaError } = await supabase.rpc("sta_consume_route_quota");
+    if (quotaError || withinQuota !== true) {
+      return Response.json({ error: "Traffic routing request limit reached. Try again shortly." }, { status: 429, headers: corsHeaders });
     }
     const apiKey = Deno.env.get("GOOGLE_ROUTES_API_KEY");
     if (!apiKey) {
