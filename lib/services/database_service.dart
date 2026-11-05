@@ -1,102 +1,91 @@
-import 'dart:convert';
-import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
-import '../models/user.dart';
-import 'sound_service.dart';
-import 'postgres_service.dart';
-import 'otp_service.dart';
 import 'dart:async';
 import 'dart:io' show File;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/user.dart';
+import 'otp_service.dart';
+
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._();
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  DatabaseService._();
+
+  SupabaseClient get _db => Supabase.instance.client;
   final String _uploadcarePubKey = '70eabc59a303435eb281';
 
-  final Map<String, Stream<dynamic>> _streamCache = {};
-
-  DatabaseService._() {
-    if (kIsWeb) {
-      try {
-        _db.settings = const Settings(
-          persistenceEnabled: false,
-          cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-        );
-      } catch (e) {
-        debugPrint("Firestore settings already applied: $e");
-      }
-    }
-  }
-
-  Stream<T> _getPersistentStream<T>(String key, Stream<T> Function() factory) {
-    if (!_streamCache.containsKey(key) || _streamCache[key] == null) {
-      _streamCache[key] = factory().asBroadcastStream(
-        onCancel: (subscription) {
-          subscription.cancel();
-          _streamCache.remove(key);
-        },
-      );
-    }
-    return _streamCache[key] as Stream<T>;
-  }
-
-  bool isMasterAdmin(String email) {
-    return email.toLowerCase() == 'admin@sta.co.tz' || email.toLowerCase() == 'mahega@sta.co.tz';
-  }
+  bool isMasterAdmin(String email) =>
+      email.toLowerCase() == 'admin@sta.co.tz' ||
+      email.toLowerCase() == 'mahega@sta.co.tz';
 
   Future<UserModel?> getUser(String id, {UserRole? expectedRole}) async {
     try {
-      if (isMasterAdmin(id)) {
-        return UserModel(id: 'master_admin', name: 'System Admin', email: 'admin@sta.co.tz', role: UserRole.admin, phoneNumber: '0000000000', createdAt: DateTime.now());
-      }
-      for (var col in ['riders', 'drivers', 'staff']) {
-        final doc = await _db.collection(col).doc(id).get();
-        if (doc.exists) return UserModel.fromJson({...doc.data()!, 'id': doc.id});
-        final q = await _db.collection(col).where('email', isEqualTo: id.toLowerCase()).limit(1).get();
-        if (q.docs.isNotEmpty) return UserModel.fromJson({...q.docs.first.data(), 'id': q.docs.first.id});
-      }
-    } catch (e) {}
-    return null;
+      final row = await _db.from('profiles')
+          .select('id, role, user_data, email')
+          .or('id.eq.$id,email.eq.$id')
+          .maybeSingle();
+      if (row == null) return null;
+      final data = row['user_data'] is Map
+          ? Map<String, dynamic>.from(row['user_data'])
+          : <String, dynamic>{};
+      data['id'] = row['id'];
+      data['role'] = row['role'];
+      data['email'] = row['email'] ?? data['email'] ?? '';
+      final user = UserModel.fromJson(data);
+      if (expectedRole != null && user.role != expectedRole) return null;
+      return user;
+    } catch (e) {
+      debugPrint('Supabase getUser failed: $e');
+      return null;
+    }
   }
 
   Future<void> saveUser(UserModel user) async {
-    String col = user.role == UserRole.driver ? 'drivers' : 'riders';
-    await _db.collection(col).doc(user.id).set(user.toJson(), SetOptions(merge: true));
+    await _db.from('profiles').upsert({
+      'id': user.id,
+      'role': user.role.name,
+      'full_name': user.name,
+      'email': user.email,
+      'phone_number': user.phoneNumber,
+      'user_data': user.toJson(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
-  Future<bool> sendEmailOTP(String email, {String name = "User"}) async {
+  Future<bool> sendEmailOTP(String email, {String name = 'User'}) async {
     try {
-      return await OtpService.sendEmailOtp(email, name);
+      await _db.auth.signInWithOtp(email: email.trim(), emailRedirectTo: null);
+      return true;
     } catch (e) {
-      debugPrint("OTP Error: $e");
+      debugPrint('Supabase OTP send failed: $e');
       return false;
     }
   }
 
   Future<bool> verifyEmailOTP(String email, String otp) async {
-    return OtpService.verifyOtp(otp);
+    try {
+      final result = await _db.auth.verifyOTP(
+        email: email.trim(), token: otp, type: OtpType.email,
+      );
+      return result.user != null;
+    } catch (e) {
+      debugPrint('Supabase OTP verification failed: $e');
+      return false;
+    }
   }
 
   Future<void> incrementDriverRides(String driverId) async {
-    await _db.collection('drivers').doc(driverId).update({
-      'totalRides': FieldValue.increment(1),
-    });
+    await _db.rpc('sta_increment_driver_rides', params: {'p_driver_id': driverId});
   }
 
-  Future<String> uploadDriverDocument(String userId, String type, dynamic file) async {
-    // Compatibility wrapper for named parameters if called that way (though Dart positional is strict)
-    return _uploadDocInternal(userId, type, file);
-  }
+  Future<String> uploadDriverDocument(String userId, String type, dynamic file) =>
+      _uploadDocInternal(userId, type, file);
 
   Future<String> _uploadDocInternal(String userId, String type, dynamic file) async {
     try {
-      String url = "";
       Uint8List? bytes;
-
-      // 1. Pata bytes za picha
       if (file is Uint8List) {
         bytes = file;
       } else if (file is File) {
@@ -104,356 +93,234 @@ class DatabaseService {
       } else if (file is String && !file.startsWith('http')) {
         bytes = await File(file).readAsBytes();
       }
-
-      if (bytes == null) return "";
-
-      // 2. Tuma kwenye PostgreSQL
-      if (kIsWeb) {
-        // Kwenye Web, tumia http.post ya kawaida kutuma Bytes HALISI (bila Multipart garbage)
-        final uri = Uri.parse('http://localhost:3000/upload');
-        final response = await http.post(
-          uri,
-          headers: {
-            'x-user-id': userId,
-            'x-file-type': type,
-            'Content-Type': 'application/octet-stream',
-          },
-          body: bytes,
-        );
-        
-        if (response.statusCode == 200) {
-          url = 'pg://$userId/$type';
-        } else {
-          debugPrint("Proxy upload failed: ${response.statusCode}");
-        }
-      } else {
-        // Kwenye Simu, tumia PostgresService moja kwa moja
-        // Hakikisha PostgresService inatumia IP ya 192.168.1.103
-        url = await PostgresService.instance.uploadFile(userId, type, bytes);
-      }
-
-      // 3. Update Firestore na URL ya pg://
-      String field = '';
-      String t = type.toLowerCase();
-      if (t.contains('license')) field = 'licenseUrl';
-      else if (t.contains('insurance')) field = 'insuranceUrl';
-      else if (t.contains('national') || t.contains('nida')) field = 'nationalIdUrl';
-      else if (t.contains('vehicle')) field = 'vehiclePhotoUrl';
-      else if (t.contains('profile')) field = 'profileImageUrl';
-
-      if (field.isNotEmpty && url.isNotEmpty) {
-        // Jaribu kuupdate pande zote mbili (Rider au Driver) bila kusababisha crash
-        try {
-          final userDoc = await _db.collection('drivers').doc(userId).get();
-          if (userDoc.exists) {
-            await _db.collection('drivers').doc(userId).update({field: url});
-          } else {
-            await _db.collection('riders').doc(userId).update({field: url});
-          }
-        } catch (e) {
-          debugPrint("Firestore update error: $e");
-        }
+      if (bytes == null) return '';
+      final extension = type.toLowerCase().contains('pdf') ? 'pdf' : 'jpg';
+      final path = '$userId/${type.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      await _db.storage.from('driver-documents').uploadBinary(
+        path, bytes,
+        fileOptions: const FileOptions(upsert: true),
+      );
+      final url = _db.storage.from('driver-documents').getPublicUrl(path);
+      final field = _profileField(type);
+      if (field != null) {
+        final profile = await _db.from('profiles')
+            .select('user_data').eq('id', userId).maybeSingle();
+        final data = profile?['user_data'] is Map
+            ? Map<String, dynamic>.from(profile!['user_data'])
+            : <String, dynamic>{};
+        data[field] = url;
+        await _db.from('profiles').update({'user_data': data}).eq('id', userId);
       }
       return url;
     } catch (e) {
-      debugPrint("Upload error: $e");
-      return "";
+      debugPrint('Supabase document upload failed: $e');
+      return '';
     }
+  }
+
+  String? _profileField(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('license')) return 'licenseUrl';
+    if (t.contains('insurance')) return 'insuranceUrl';
+    if (t.contains('national') || t.contains('nida')) return 'nationalIdUrl';
+    if (t.contains('vehicle')) return 'vehiclePhotoUrl';
+    if (t.contains('profile')) return 'profileImageUrl';
+    return null;
   }
 
   Future<void> updateAnyUserProfilePic(String userId, String url) async {
-    try {
-      // Jaribu kwanza kwenye riders
-      final riderDoc = await _db.collection('riders').doc(userId).get();
-      if (riderDoc.exists) {
-        await _db.collection('riders').doc(userId).update({'profileImageUrl': url});
-        return;
-      }
-      // Kama hayupo riders, update drivers
-      await _db.collection('drivers').doc(userId).update({'profileImageUrl': url});
-    } catch (e) {
-      debugPrint("Error updating profile pic: $e");
-    }
+    final row = await _db.from('profiles').select('user_data')
+        .eq('id', userId).maybeSingle();
+    if (row == null) return;
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
+    data['profileImageUrl'] = url;
+    await _db.from('profiles').update({'user_data': data}).eq('id', userId);
   }
 
-  Future<void> updateDriverVerificationStatus(String id, dynamic status, {String? reason, bool isUpdate = false}) async {
-    String statusStr = status is VerificationStatus ? status.toString().split('.').last : status.toString();
-    
+  Future<void> updateDriverVerificationStatus(
+    String id, dynamic status, {String? reason, bool isUpdate = false}
+  ) async {
+    final statusStr = status is VerificationStatus
+        ? status.name : status.toString();
+    final row = await _db.from('profiles').select('user_data')
+        .eq('id', id).maybeSingle();
+    if (row == null) return;
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
     if (isUpdate) {
-      if (statusStr == 'verified') {
-        // Approve pending updates
-        final doc = await _db.collection('drivers').doc(id).get();
-        final data = doc.data();
-        if (data != null && data['pendingUpdates'] != null) {
-          Map<String, dynamic> updates = Map<String, dynamic>.from(data['pendingUpdates']);
-          updates['profileEditStatus'] = 'none';
-          updates['pendingUpdates'] = FieldValue.delete();
-          await _db.collection('drivers').doc(id).update(updates);
-        }
-      } else {
-        // Reject pending updates
-        await _db.collection('drivers').doc(id).update({
-          'profileEditStatus': 'none',
-          'pendingUpdates': FieldValue.delete(),
-          if (reason != null) 'rejectionReason': reason,
-        });
+      if (statusStr == 'verified' && data['pendingUpdates'] is Map) {
+        data.addAll(Map<String, dynamic>.from(data['pendingUpdates']));
       }
+      data.remove('pendingUpdates');
+      data['profileEditStatus'] = 'none';
     } else {
-      // Standard new registration verification
-      await _db.collection('drivers').doc(id).update({
-        'verificationStatus': statusStr,
-        'isVerified': statusStr == 'verified',
-        if (reason != null) 'rejectionReason': reason,
-      });
+      data['verificationStatus'] = statusStr;
+      data['isVerified'] = statusStr == 'verified';
     }
+    if (reason != null) data['rejectionReason'] = reason;
+    await _db.from('profiles').update({'user_data': data}).eq('id', id);
+    await _db.from('driver_profiles').upsert({
+      'user_id': id, 'verification_status': statusStr,
+    });
   }
 
   Future<void> recordTrip(Map<String, dynamic> tripData) async {
-    final String tripId = tripData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
-    final String? driverId = tripData['driverId'];
-    if (driverId == null) return;
-
-    await _db.runTransaction((transaction) async {
-      double fare = (tripData['fare'] as num?)?.toDouble() ?? 0.0;
-      String method = (tripData['paymentMethod'] ?? tripData['payment_method'] ?? 'cash').toString().toLowerCase();
-      bool isCash = method == 'cash';
-      
-      double commission = (fare * 0.20).roundToDouble();
-      double driverShare = (fare * 0.80).roundToDouble();
-
-      // Hifadhi mahesabu kwenye Trip Document pia kwa ajili ya ripoti
-      Map<String, dynamic> updatedTripData = {
-        ...tripData,
-        'commission': commission,
-        'driverShare': driverShare,
-        'processedAt': FieldValue.serverTimestamp(),
-      };
-
-      final tripRef = _db.collection('trips').doc(tripId);
-      final tripSnap = await transaction.get(tripRef);
-
-      if (tripSnap.exists) {
-        final existingData = tripSnap.data() as Map<String, dynamic>;
-        // KUZUIA: Tusije tuka-overwrite 'paid' na 'completed' (downstream sync)
-        if (existingData['paymentStatus'] == 'paid' || existingData['status'] == 'paid' || existingData['status'] == 'completed_paid') {
-          updatedTripData['paymentStatus'] = 'paid';
-          if (updatedTripData['status'] == 'completed') {
-            updatedTripData['status'] = existingData['status'];
-          }
-        }
-        transaction.update(tripRef, updatedTripData);
-      } else {
-        transaction.set(tripRef, updatedTripData);
-      }
-      
-      final walletRef = _db.collection('wallets').doc(driverId);
-      
-      if (isCash) {
-        // Dereva anachukua cash yote, anakatwa 20% kwenye wallet (deni)
-        transaction.set(walletRef, {
-          'balance': FieldValue.increment(-commission), 
-          'lastUpdated': FieldValue.serverTimestamp()
-        }, SetOptions(merge: true));
-        
-        transaction.set(_db.collection('transactions').doc(), {
-          'driverId': driverId, 
-          'amount': -commission, 
-          'type': 'commission_deduction', 
-          'description': 'Trip Commission (Cash)', 
-          'rideId': tripId, 
-          'timestamp': FieldValue.serverTimestamp()
-        });
-      } else {
-        // Pesa imekuja kwako (App), dereva anapewa 80% kwenye wallet yake (chumo)
-        transaction.set(walletRef, {
-          'balance': FieldValue.increment(driverShare), 
-          'totalEarned': FieldValue.increment(driverShare), 
-          'lastUpdated': FieldValue.serverTimestamp()
-        }, SetOptions(merge: true));
-        
-        transaction.set(_db.collection('transactions').doc(), {
-          'driverId': driverId, 
-          'amount': driverShare, 
-          'type': 'ride_earning', 
-          'description': 'Trip Earnings (Digital)', 
-          'rideId': tripId, 
-          'timestamp': FieldValue.serverTimestamp()
-        });
-      }
-    });
+    await _db.rpc('sta_record_trip', params: {'p_trip_data': tripData});
   }
 
-  Stream<Map<String, dynamic>?> getWalletStream(String userId) {
-    return _getPersistentStream('wallet_$userId', () => _db.collection('wallets').doc(userId).snapshots().map((doc) => doc.data()));
-  }
+  Stream<Map<String, dynamic>?> getWalletStream(String userId) =>
+      _db.from('wallets').stream(primaryKey: ['user_id'])
+          .eq('user_id', userId)
+          .map((rows) => rows.isEmpty ? null : Map<String, dynamic>.from(rows.first));
 
-  Stream<List<Map<String, dynamic>>> getTransactionsStream(String userId) {
-    return _getPersistentStream('tx_$userId', () => _db.collection('transactions').where('driverId', isEqualTo: userId).snapshots().map((snap) {
-        final docs = snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
-        docs.sort((a, b) => ((b['timestamp'] as Timestamp?)?.seconds ?? 0).compareTo((a['timestamp'] as Timestamp?)?.seconds ?? 0));
-        return docs.take(30).toList();
-      })
-    );
-  }
+  Stream<List<Map<String, dynamic>>> getTransactionsStream(String userId) =>
+      _db.from('wallet_transactions').stream(primaryKey: ['id'])
+          .eq('user_id', userId)
+          .map((rows) => rows.map((r) => Map<String, dynamic>.from(r)).toList());
 
-  Stream<List<Map<String, dynamic>>> getPendingRequestsStream(String userId) {
-    return _getPersistentStream('pending_req_$userId', () {
-      final controller = StreamController<List<Map<String, dynamic>>>();
-      StreamSubscription? pSub, wSub;
-      List<Map<String, dynamic>> lastP = [], lastW = [];
-      void emit() { if (!controller.isClosed) { final all = [...lastP, ...lastW]; all.sort((a, b) => ((b['createdAt'] as Timestamp?)?.seconds ?? 0).compareTo((a['createdAt'] as Timestamp?)?.seconds ?? 0)); controller.add(all); } }
-      pSub = _db.collection('payments').where('userId', isEqualTo: userId).where('status', isEqualTo: 'pending').snapshots().listen((s) { lastP = s.docs.map((d) => ({...d.data(), 'id': d.id, 'type': 'topup', 'isPending': true})).toList(); emit(); });
-      wSub = _db.collection('withdrawals').where('userId', isEqualTo: userId).where('status', isEqualTo: 'pending').snapshots().listen((s) { lastW = s.docs.map((d) => ({...d.data(), 'id': d.id, 'type': 'withdrawal', 'isPending': true})).toList(); emit(); });
-      controller.onCancel = () { pSub?.cancel(); wSub?.cancel(); };
-      return controller.stream;
-    });
-  }
+  Stream<List<Map<String, dynamic>>> getPendingRequestsStream(String userId) =>
+      _db.from('payments').stream(primaryKey: ['id'])
+          .eq('user_id', userId)
+          .map((rows) => rows.where((r) => r['status'] == 'pending')
+              .map((r) => {...Map<String, dynamic>.from(r), 'type': 'topup', 'isPending': true})
+              .toList());
 
-  Stream<List<UserModel>> getDriversStream() {
-    return _db.collection('drivers').snapshots().map((snap) => snap.docs.map((doc) => UserModel.fromJson({...doc.data(), 'id': doc.id})).toList());
+  Stream<List<UserModel>> getDriversStream() =>
+      _db.from('profiles').stream(primaryKey: ['id']).eq('role', 'driver')
+          .map((rows) => rows.map(_userFromRow).toList());
+
+  UserModel _userFromRow(Map<String, dynamic> row) {
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
+    data['id'] = row['id'];
+    data['role'] = row['role'];
+    data['email'] = row['email'] ?? data['email'] ?? '';
+    return UserModel.fromJson(data);
   }
 
   Future<List<UserModel>> getAllDrivers() async {
-    final snap = await _db.collection('drivers').get();
-    return snap.docs.map((doc) => UserModel.fromJson({...doc.data(), 'id': doc.id})).toList();
+    final rows = await _db.from('profiles').select().eq('role', 'driver');
+    return rows.map(_userFromRow).toList();
   }
 
   Future<List<UserModel>> getAllUsers() async {
-    final riders = await _db.collection('riders').get();
-    final drivers = await _db.collection('drivers').get();
-    final staff = await _db.collection('staff').get();
-    List<UserModel> all = [];
-    all.addAll(riders.docs.map((d) => UserModel.fromJson({...d.data(), 'id': d.id, 'role': 'rider'})));
-    all.addAll(drivers.docs.map((d) => UserModel.fromJson({...d.data(), 'id': d.id, 'role': 'driver'})));
-    all.addAll(staff.docs.map((d) => UserModel.fromJson({...d.data(), 'id': d.id, 'role': 'staff'})));
-    return all;
+    final rows = await _db.from('profiles').select();
+    return rows.map(_userFromRow).toList();
   }
 
   Future<List<UserModel>> getAllStaff() async {
-    final snap = await _db.collection('staff').get();
-    return snap.docs.map((doc) => UserModel.fromJson({...doc.data(), 'id': doc.id, 'role': 'staff'})).toList();
+    final rows = await _db.from('profiles').select().eq('role', 'staff');
+    return rows.map(_userFromRow).toList();
   }
 
-  Future<void> deleteDriver(String id) async => _db.collection('drivers').doc(id).delete();
-  
-  Future<void> deleteUser(String id, UserRole role) async {
-    String col = role == UserRole.driver ? 'drivers' : (role == UserRole.rider ? 'riders' : 'staff');
-    await _db.collection(col).doc(id).delete();
-  }
+  Future<void> deleteDriver(String id) async =>
+      _db.from('profiles').delete().eq('id', id);
+
+  Future<void> deleteUser(String id, UserRole role) async =>
+      _db.from('profiles').delete().eq('id', id).eq('role', role.name);
 
   Future<void> updateDriverEarnings(String id, double amount) async {
-    await _db.collection('wallets').doc(id).set({'balance': FieldValue.increment(amount), 'lastUpdated': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    await _db.rpc('sta_adjust_wallet', params: {
+      'p_user_id': id, 'p_amount': amount, 'p_type': 'manual_adjustment',
+    });
   }
 
   Future<List<Map<String, dynamic>>> getAllTrips({String? driverId, String? riderId}) async {
-    try {
-      Query query = _db.collection('trips');
-      
-      // MUHIMU: Ili kuzuia permission-denied, lazima tuwe na filter 
-      // inayolingana na Security Rules (riderId au driverId)
-      if (driverId != null && driverId.isNotEmpty) {
-        query = query.where('driverId', isEqualTo: driverId);
-      } else if (riderId != null && riderId.isNotEmpty) {
-        query = query.where('riderId', isEqualTo: riderId);
-      } else {
-        // Ikiwa hakuna ID iliyotolewa, na mtumiaji si Admin, 
-        // query hii itakataliwa na Firebase Rules.
-        return [];
-      }
-      
-      final snap = await query.get();
-      return snap.docs.map((doc) => {...doc.data() as Map<String, dynamic>, 'id': doc.id}).toList();
-    } catch (e) {
-      debugPrint("❌ DatabaseService.getAllTrips Error: $e");
-      rethrow;
-    }
+    if ((driverId == null || driverId.isEmpty) && (riderId == null || riderId.isEmpty)) return [];
+    var query = _db.from('trips').select();
+    if (driverId != null && driverId.isNotEmpty) query = query.eq('driver_id', driverId);
+    if (riderId != null && riderId.isNotEmpty) query = query.eq('rider_id', riderId);
+    final rows = await query;
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
   Future<String> getSetting(String key, String def) async {
-    final d = await _db.collection('settings').doc(key).get();
-    return d.exists ? (d.data()?['value']?.toString() ?? def) : def;
+    final row = await _db.from('app_settings').select('value').eq('key', key).maybeSingle();
+    return row?['value']?.toString() ?? def;
   }
 
   Future<void> updateSetting(String key, String value) async {
-    await _db.collection('settings').doc(key).set({'value': value}, SetOptions(merge: true));
+    await _db.from('app_settings').upsert({'key': key, 'value': value});
   }
 
-  Stream<List<Map<String, dynamic>>> getPendingTopUps() {
-    return _db.collection('payments').where('status', isEqualTo: 'pending').snapshots().map((snap) => snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
-  }
+  Stream<List<Map<String, dynamic>>> getPendingTopUps() =>
+      _db.from('payments').stream(primaryKey: ['id'])
+          .map((rows) => rows.where((r) => r['status'] == 'pending')
+              .map((r) => Map<String, dynamic>.from(r)).toList());
 
-  Stream<List<Map<String, dynamic>>> getPendingWithdrawals() {
-    return _db.collection('withdrawals').where('status', isEqualTo: 'pending').snapshots().map((snap) => snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
-  }
+  Stream<List<Map<String, dynamic>>> getPendingWithdrawals() =>
+      _db.from('withdrawal_requests').stream(primaryKey: ['id'])
+          .map((rows) => rows.where((r) => r['status'] == 'pending')
+              .map((r) => Map<String, dynamic>.from(r)).toList());
 
   Future<void> approveWithdrawal(String withdrawalId, String userId, double amount) async {
-    final batch = _db.batch();
-    batch.update(_db.collection('withdrawals').doc(withdrawalId), {'status': 'completed', 'processedAt': FieldValue.serverTimestamp()});
-    batch.update(_db.collection('wallets').doc(userId), {'balance': FieldValue.increment(-amount), 'lastUpdated': FieldValue.serverTimestamp()});
-    batch.set(_db.collection('transactions').doc(), {'driverId': userId, 'amount': -amount, 'type': 'payout', 'description': 'Withdrawal Approved', 'timestamp': FieldValue.serverTimestamp()});
-    await batch.commit();
+    await _db.rpc('sta_process_withdrawal', params: {
+      'p_withdrawal_id': withdrawalId, 'p_user_id': userId, 'p_amount': amount,
+      'p_approve': true,
+    });
   }
 
   Future<void> rejectWithdrawal(String id) async {
-    await _db.collection('withdrawals').doc(id).update({'status': 'rejected', 'processedAt': FieldValue.serverTimestamp()});
+    await _db.rpc('sta_process_withdrawal', params: {
+      'p_withdrawal_id': id, 'p_user_id': _db.auth.currentUser!.id,
+      'p_amount': 0, 'p_approve': false,
+    });
   }
 
   Future<void> approveTopUp(String paymentId, String userId, double amount) async {
-    final batch = _db.batch();
-    batch.update(_db.collection('payments').doc(paymentId), {'status': 'completed', 'processedAt': FieldValue.serverTimestamp()});
-    batch.set(_db.collection('wallets').doc(userId), {'balance': FieldValue.increment(amount), 'lastUpdated': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    batch.set(_db.collection('transactions').doc(), {'driverId': userId, 'amount': amount, 'type': 'topup', 'description': 'Wallet Top-up Approved', 'timestamp': FieldValue.serverTimestamp()});
-    await batch.commit();
+    await _db.rpc('sta_process_topup', params: {
+      'p_payment_id': paymentId, 'p_user_id': userId, 'p_amount': amount,
+    });
   }
 
   Future<void> approveTopUpDirect(String userId, double amount) async {
-    final batch = _db.batch();
-    // Record as completed payment immediately
-    final payRef = _db.collection('payments').doc();
-    batch.set(payRef, {
-      'userId': userId,
-      'amount': amount,
-      'status': 'completed',
-      'type': 'topup',
-      'processedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
+    await _db.rpc('sta_manual_topup', params: {
+      'p_user_id': userId, 'p_amount': amount,
     });
-    
-    batch.set(_db.collection('wallets').doc(userId), {
-      'balance': FieldValue.increment(amount), 
-      'lastUpdated': FieldValue.serverTimestamp()
-    }, SetOptions(merge: true));
-    
-    batch.set(_db.collection('transactions').doc(), {
-      'driverId': userId, 
-      'amount': amount, 
-      'type': 'topup', 
-      'description': 'Wallet Top-up', 
-      'timestamp': FieldValue.serverTimestamp()
-    });
-    await batch.commit();
   }
 
   Future<void> rejectTopUp(String id) async {
-    await _db.collection('payments').doc(id).update({'status': 'rejected', 'processedAt': FieldValue.serverTimestamp()});
+    await _db.from('payments').update({'status': 'failed'}).eq('id', id);
   }
 
-  Future<List<String>> getTableNames() async {
-    return ['riders', 'drivers', 'staff', 'trips', 'ride_requests', 'wallets', 'transactions', 'payments', 'withdrawals', 'settings', 'it_tickets', 'sos_alerts'];
-  }
+  Future<List<String>> getTableNames() async => [
+    'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
+    'trips', 'wallets', 'wallet_transactions', 'payments',
+    'withdrawal_requests', 'notification_broadcasts', 'app_settings',
+    'chat_messages', 'sos_alerts',
+  ];
 
   Future<List<Map<String, dynamic>>> getTableData(String tableName) async {
-    final snap = await _db.collection(tableName).get();
-    return snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+    const allowed = {
+      'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
+      'trips', 'wallets', 'wallet_transactions', 'payments',
+      'withdrawal_requests', 'notification_broadcasts', 'app_settings',
+      'chat_messages', 'sos_alerts',
+    };
+    if (!allowed.contains(tableName)) throw ArgumentError('Unknown table');
+    final rows = await _db.from(tableName).select();
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
   Future<void> deleteRecord(String table, String id) async {
-    await _db.collection(table).doc(id).delete();
+    const allowed = {'notification_broadcasts', 'app_settings'};
+    if (!allowed.contains(table)) throw ArgumentError('Operation not allowed');
+    await _db.from(table).delete().eq('id', id);
   }
 
   Future<void> insertOrUpdateRecord(String table, String id, Map<String, dynamic> data) async {
-    await _db.collection(table).doc(id).set(data, SetOptions(merge: true));
+    const allowed = {'app_settings'};
+    if (!allowed.contains(table)) throw ArgumentError('Operation not allowed');
+    await _db.from(table).upsert({...data, 'id': id});
   }
 
-  Future<void> updateDriverVerification(String id, bool v) async => _db.collection('drivers').doc(id).update({'isVerified': v, 'verificationStatus': v ? 'verified' : 'rejected'});
+  Future<void> updateDriverVerification(String id, bool verified) async {
+    await updateDriverVerificationStatus(
+      id, verified ? VerificationStatus.verified : VerificationStatus.rejected,
+    );
+  }
 }
