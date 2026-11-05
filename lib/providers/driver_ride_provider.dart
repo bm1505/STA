@@ -78,6 +78,7 @@ class DriverRideProvider extends ChangeNotifier {
       latitude: position.latitude,
       longitude: position.longitude,
       heading: position.heading,
+      speedMps: position.speed,
       userId: userId,
       isOnline: isOnline,
     );
@@ -94,6 +95,7 @@ class DriverRideProvider extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       heading: heading,
+      speedMps: (event['speed'] as num?)?.toDouble() ?? 0,
       userId: userId,
       isOnline: true,
     );
@@ -103,6 +105,7 @@ class DriverRideProvider extends ChangeNotifier {
     required double latitude,
     required double longitude,
     required double heading,
+    double speedMps = 0,
     required String userId,
     required bool isOnline,
   }) {
@@ -110,29 +113,15 @@ class DriverRideProvider extends ChangeNotifier {
     _currentBearing = heading;
     final driverId = _db.auth.currentUser?.id;
     if (driverId == null || driverId != userId) return;
-    if (_currentRideData != null) {
-      _db.from('ride_requests').update({
-        'driver_latitude': latitude,
-        'driver_longitude': longitude,
-        'driver_heading': heading,
-      }).eq('id', _currentRideData!['id'].toString()).then((_) {});
-    }
     if (isOnline && !isBlocked) {
-      _db.from('driver_locations').upsert({
-        'driver_id': driverId,
-        'latitude': latitude,
-        'longitude': longitude,
-        'heading': heading,
-        'recorded_at': DateTime.now().toUtc().toIso8601String(),
-      }).then((_) {});
-      _db.from('driver_profiles').update({
-        'is_online': true,
-        'availability_status': _status == DriverRideStatus.idle ? 'idle' : 'on_trip',
-        'vehicle_type': Vehicle.getStandardizedType(_user?.vehicleType ?? 'Car'),
-        'region': _user?.region,
-        'city': _user?.city,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('user_id', driverId).then((_) {});
+      _db.rpc('sta_update_driver_location', params: {
+        'p_latitude': latitude,
+        'p_longitude': longitude,
+        'p_heading': heading >= 0 && heading < 360 ? heading : null,
+        'p_speed_mps': speedMps >= 0 ? speedMps : null,
+      }).then((_) {}).catchError((error) {
+        debugPrint('Secure driver location update failed: $error');
+      });
     } else {
       updateStatus(userId, 'offline', _currentLocation, _user?.vehicleType ?? 'Car');
     }
@@ -316,8 +305,15 @@ class DriverRideProvider extends ChangeNotifier {
   void _resetRide() {
     _status = DriverRideStatus.idle;
     final id = _db.auth.currentUser?.id;
-    if (id != null) {
-      _db.from('driver_profiles').update({'availability_status': 'idle'}).eq('user_id', id).then((_) {});
+    if (id != null && _user?.isVerified == true && !isBlocked) {
+      _db.rpc('sta_set_driver_presence', params: {
+        'p_status': 'idle',
+        'p_vehicle_type': Vehicle.getStandardizedType(_user?.vehicleType ?? 'Car'),
+        'p_region': _user?.region,
+        'p_city': _user?.city,
+      }).then((_) {}).catchError((error) {
+        debugPrint('Driver idle update failed: $error');
+      });
     }
     _currentRideData = null; _tripTimer?.cancel(); _chatSubscription?.cancel();
     _currentRideSubscription?.cancel(); _tripDistance = 0; _tripSeconds = 0;
@@ -351,25 +347,32 @@ class DriverRideProvider extends ChangeNotifier {
     if (id == null) return;
     if (status == 'offline' || isBlocked) {
       _stopLocationService();
-      _db.from('driver_profiles').update({
-        'is_online': false, 'availability_status': 'offline',
-      }).eq('user_id', id).then((_) {});
-      _db.from('driver_locations').delete().eq('driver_id', id).then((_) {});
+      _db.rpc('sta_set_driver_presence', params: {
+        'p_status': 'offline',
+        'p_vehicle_type': Vehicle.getStandardizedType(vehicleType),
+        'p_region': region,
+        'p_city': city,
+      }).then((_) {}).catchError((error) {
+        debugPrint('Driver offline update failed: $error');
+      });
       return;
     }
-    _startLocationService();
-    _db.from('driver_profiles').upsert({
-      'user_id': id, 'is_online': true, 'availability_status': status,
-      'vehicle_type': Vehicle.getStandardizedType(vehicleType),
-      'verification_status': _user?.isVerified == true ? 'verified' : 'pending',
-      'region': region, 'city': city,
-    }).then((_) {});
-    if (location != null) {
-      _db.from('driver_locations').upsert({
-        'driver_id': id, 'latitude': location.latitude, 'longitude': location.longitude,
-        'recorded_at': DateTime.now().toUtc().toIso8601String(),
-      }).then((_) {});
+
+    if (_user?.isVerified != true) {
+      debugPrint('Unverified driver cannot go online.');
+      return;
     }
+
+    _startLocationService();
+    final presenceStatus = status == 'on_trip' ? 'on_trip' : 'idle';
+    _db.rpc('sta_set_driver_presence', params: {
+      'p_status': presenceStatus,
+      'p_vehicle_type': Vehicle.getStandardizedType(vehicleType),
+      'p_region': region,
+      'p_city': city,
+    }).then((_) {}).catchError((error) {
+      debugPrint('Driver presence update failed: $error');
+    });
   }
 
   @override
