@@ -247,15 +247,45 @@ class DatabaseService {
     await _db.from('app_settings').upsert({'key': key, 'value': value});
   }
 
+  Stream<List<Map<String, dynamic>>> getAllWalletsStream() =>
+      _db.from('wallets').stream(primaryKey: ['user_id'])
+          .map((rows) => rows.map((r) => Map<String, dynamic>.from(r)).toList());
+
   Stream<List<Map<String, dynamic>>> getPendingTopUps() =>
       _db.from('payments').stream(primaryKey: ['id'])
-          .map((rows) => rows.where((r) => r['status'] == 'pending')
-              .map((r) => Map<String, dynamic>.from(r)).toList());
+          .map((rows) => rows.where((r) => r['status'] == 'pending' &&
+              (r['provider_payload'] is Map
+                ? (r['provider_payload'] as Map)['type'] == 'topup'
+                : false))
+              .map((r) => {
+                ...Map<String, dynamic>.from(r),
+                'userId': r['user_id'],
+                'phoneNumber': r['phone_number'] ?? 'N/A',
+              }).toList());
 
   Stream<List<Map<String, dynamic>>> getPendingWithdrawals() =>
       _db.from('withdrawal_requests').stream(primaryKey: ['id'])
           .map((rows) => rows.where((r) => r['status'] == 'pending')
-              .map((r) => Map<String, dynamic>.from(r)).toList());
+              .map((r) => {
+                ...Map<String, dynamic>.from(r),
+                'userId': r['user_id'],
+                'phoneNumber': r['phone_number'] ?? '',
+              }).toList());
+
+  Future<String> requestWithdrawal({
+    required double amount,
+    required String phoneNumber,
+    required String payoutMethod,
+    required String payoutProvider,
+  }) async {
+    final result = await _db.rpc('sta_request_withdrawal', params: {
+      'p_amount': amount,
+      'p_phone_number': phoneNumber,
+      'p_payout_method': payoutMethod,
+      'p_payout_provider': payoutProvider,
+    });
+    return result.toString();
+  }
 
   Future<void> approveWithdrawal(String withdrawalId, String userId, double amount) async {
     await _db.rpc('sta_process_withdrawal', params: {
@@ -265,9 +295,13 @@ class DatabaseService {
   }
 
   Future<void> rejectWithdrawal(String id) async {
+    final request = await _db.from('withdrawal_requests')
+        .select('user_id').eq('id', id).single();
     await _db.rpc('sta_process_withdrawal', params: {
-      'p_withdrawal_id': id, 'p_user_id': _db.auth.currentUser!.id,
-      'p_amount': 0, 'p_approve': false,
+      'p_withdrawal_id': id,
+      'p_user_id': request['user_id'],
+      'p_amount': 0,
+      'p_approve': false,
     });
   }
 
