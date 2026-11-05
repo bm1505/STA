@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/ride_provider.dart';
@@ -39,24 +39,17 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
 
     try {
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(_chatId)
-          .collection('messages')
-          .add({
-        'senderId': widget.senderId,
-        'receiverId': widget.receiverId,
-        'senderName': widget.senderName,
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (currentUserId == null || currentUserId != widget.senderId) {
+        throw StateError('Your session is not authorized to send this message.');
+      }
+      await Supabase.instance.client.from('chat_messages').insert({
+        'chat_id': _chatId,
+        'sender_id': currentUserId,
+        'receiver_id': widget.receiverId,
+        'sender_name': widget.senderName,
         'message': msg,
-        'timestamp': FieldValue.serverTimestamp(),
       });
-
-      // Update last message in the main chat document for a "conversations" list if needed
-      await FirebaseFirestore.instance.collection('chats').doc(_chatId).set({
-        'lastMessage': msg,
-        'lastTimestamp': FieldValue.serverTimestamp(),
-        'participants': [widget.senderId, widget.receiverId],
-      }, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Error sending message: $e");
     }
@@ -93,13 +86,10 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(_chatId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(includeMetadataChanges: true),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client.from('chat_messages')
+                  .stream(primaryKey: ['id'])
+                  .eq('chat_id', _chatId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -107,14 +97,15 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: AppTheme.primaryGold));
                 }
 
-                final docs = snapshot.data?.docs ?? [];
-                final messages = docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                final docs = [...(snapshot.data ?? <Map<String, dynamic>>[])];
+                docs.sort((a, b) => (a['created_at']?.toString() ?? '')
+                    .compareTo(b['created_at']?.toString() ?? ''));
+                final messages = docs.map((data) {
                   return ChatMessage(
-                    senderId: data['senderId'] ?? '',
-                    senderName: data['senderName'] ?? 'Unknown',
+                    senderId: data['sender_id'] ?? '',
+                    senderName: data['sender_name'] ?? 'Unknown',
                     message: data['message'] ?? '',
-                    timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+                    timestamp: DateTime.tryParse(data['created_at']?.toString() ?? ''),
                   );
                 }).toList();
 
