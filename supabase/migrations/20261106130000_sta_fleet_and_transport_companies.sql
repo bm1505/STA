@@ -436,7 +436,7 @@ begin
   values(p_org_id,p_vehicle_id,p_driver_id,auth.uid()) returning id into v_assignment;
   insert into public.organization_members(organization_id,user_id,role,status)
   values(p_org_id,p_driver_id,'driver','active')
-  on conflict(organization_id,user_id) do nothing;
+  on conflict(organization_id,user_id) do update set status='active';
   update public.driver_profiles
   set vehicle_id=p_vehicle_id,vehicle_type=v_vehicle.vehicle_type,vehicle_plate=v_vehicle.registration_number,updated_at=now()
   where user_id=p_driver_id;
