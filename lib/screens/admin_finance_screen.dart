@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/user.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
@@ -72,20 +72,16 @@ class _AdminFinanceScreenState extends State<AdminFinanceScreen> {
   }
 
   Widget _buildRevenueSummary() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('wallets').snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: DatabaseService.instance.getAllWalletsStream(),
       builder: (context, snapshot) {
-        double totalToPay = 0; 
-        double totalToCollect = 0; 
-
-        if (snapshot.hasData) {
-          for (var doc in snapshot.data!.docs) {
-            double bal = (doc.data() as Map<String, dynamic>)['balance'] ?? 0.0;
-            if (bal > 0) totalToPay += bal;
-            else totalToCollect += bal.abs();
-          }
+        double totalToPay = 0;
+        double totalToCollect = 0;
+        for (final wallet in snapshot.data ?? const <Map<String, dynamic>>[]) {
+          final balance = (wallet['balance'] as num?)?.toDouble() ?? 0;
+          if (balance > 0) totalToPay += balance;
+          if (balance < 0) totalToCollect += balance.abs();
         }
-
         return Row(
           children: [
             _buildFinCard("TOTAL TO PAY (DRIVERS)", totalToPay, Colors.orangeAccent, Icons.outbox),
@@ -93,7 +89,7 @@ class _AdminFinanceScreenState extends State<AdminFinanceScreen> {
             _buildFinCard("TOTAL TO COLLECT (CASH)", totalToCollect, Colors.greenAccent, Icons.move_to_inbox),
           ],
         );
-      }
+      },
     );
   }
 
@@ -154,17 +150,17 @@ class _AdminFinanceScreenState extends State<AdminFinanceScreen> {
       child: Row(
         children: [
           Expanded(
-            child: FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance.collection('drivers').doc(userId).get(),
+            child: FutureBuilder<UserModel?>(
+              future: DatabaseService.instance.getUser(userId),
               builder: (context, snap) {
                 String name = "Loading...";
                 String method = "M-Pesa";
                 String number = "";
-                if (snap.hasData && snap.data!.exists) {
-                  final data = snap.data!.data() as Map<String, dynamic>;
-                  name = data['name'] ?? 'Unknown';
-                  method = data['payoutMethod'] ?? 'M-Pesa';
-                  number = data['payoutNumber'] ?? data['phoneNumber'] ?? '';
+                if (snap.hasData && snap.data != null) {
+                  final data = snap.data!;
+                  name = data.name.isEmpty ? 'Unknown' : data.name;
+                  method = data.payoutMethod ?? 'M-Pesa';
+                  number = data.payoutNumber ?? data.phoneNumber;
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,12 +320,12 @@ class _AdminFinanceScreenState extends State<AdminFinanceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance.collection('drivers').doc(userId).get(),
+                FutureBuilder<UserModel?>(
+                  future: DatabaseService.instance.getUser(userId),
                   builder: (context, snap) {
                     String name = "Loading...";
-                    if (snap.hasData && snap.data!.exists) {
-                      name = (snap.data!.data() as Map<String, dynamic>)['name'] ?? 'Unknown';
+                    if (snap.hasData && snap.data != null) {
+                      name = snap.data!.name.isEmpty ? 'Unknown' : snap.data!.name;
                     }
                     return Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15));
                   },
