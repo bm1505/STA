@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,52 +15,45 @@ class AdminLiveTripsScreen extends StatefulWidget {
 class _AdminLiveTripsScreenState extends State<AdminLiveTripsScreen> {
   final Map<String, Map<String, dynamic>> _activeTrips = {};
 
-  StreamSubscription? _tripsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _tripsSubscription;
+  SupabaseClient get _db => Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _setupFirestoreListeners();
+    _setupSupabaseListener();
   }
 
-  void _setupFirestoreListeners() {
-    // Firestore-only architecture: Listening to 'ride_requests' collection
-    _tripsSubscription = FirebaseFirestore.instance
-        .collection('ride_requests')
-        .where('status', whereIn: [
-          'requesting',
-          'accepted',
-          'arrived',
-          'started',
-          'in_progress'
-        ])
-        .snapshots()
-        .listen((snapshot) {
-          if (mounted) {
-            setState(() {
-              for (var change in snapshot.docChanges) {
-                final data = change.doc.data();
-                if (data != null) {
-                  final rideId = change.doc.id;
-                  if (change.type == DocumentChangeType.removed) {
-                    _activeTrips.remove(rideId);
-                  } else {
-                    _activeTrips[rideId] = {
-                      ...data,
-                      'rideId': rideId,
-                      // Ensure we have a timestamp for sorting or display
-                      'timestamp': data['createdAt'] != null
-                          ? (data['createdAt'] as Timestamp)
-                              .toDate()
-                              .toIso8601String()
-                          : DateTime.now().toIso8601String(),
-                    };
-                  }
-                }
-              }
-            });
-          }
-        });
+  void _setupSupabaseListener() {
+    _tripsSubscription = _db.from('ride_requests')
+        .stream(primaryKey: ['id'])
+        .listen((rows) {
+      if (!mounted) return;
+      final activeStatuses = {'requesting', 'accepted', 'driver_arrived', 'in_progress'};
+      setState(() {
+        _activeTrips.clear();
+        for (final row in rows) {
+          final status = row['status']?.toString() ?? '';
+          if (!activeStatuses.contains(status)) continue;
+          final rideData = row['ride_data'] is Map
+              ? Map<String, dynamic>.from(row['ride_data'] as Map)
+              : <String, dynamic>{};
+          _activeTrips[row['id'].toString()] = {
+            'rideId': row['id'].toString(),
+            'status': status,
+            'fare': row['final_fare'] ?? row['estimated_fare'] ?? 0,
+            'createdAt': row['created_at']?.toString(),
+            'vehicleType': row['vehicle_type'] ?? 'Standard',
+            'riderName': rideData['riderName'] ?? 'Unknown Rider',
+            'pickupAddress': row['pickup_label'] ?? 'Unknown Location',
+            'dropoffAddress': row['dropoff_label'] ?? 'Unknown Destination',
+            'driverName': rideData['driverName'],
+          };
+        }
+      });
+    }, onError: (Object error) {
+      debugPrint('STA live trips stream failed: $error');
+    });
   }
 
   @override
@@ -123,9 +116,7 @@ class _AdminLiveTripsScreenState extends State<AdminLiveTripsScreen> {
   Widget _buildTripMonitorCard(Map<String, dynamic> trip) {
     final statusColor = _getStatusColor(trip['status']);
     final fare = (trip['fare'] as num?)?.toDouble() ?? 0.0;
-    final createdAt = trip['createdAt'] is Timestamp 
-        ? (trip['createdAt'] as Timestamp).toDate() 
-        : DateTime.tryParse(trip['timestamp'] ?? '') ?? DateTime.now();
+    final createdAt = DateTime.tryParse(trip['createdAt']?.toString() ?? '') ?? DateTime.now();
     final timeAgo = DateTime.now().difference(createdAt).inMinutes;
 
     return Container(
