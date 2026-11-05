@@ -318,7 +318,7 @@ class DatabaseService {
   }
 
   Future<void> rejectTopUp(String id) async {
-    await _db.from('payments').update({'status': 'failed'}).eq('id', id);
+    await _db.rpc('sta_reject_payment', params: {'p_payment_id': id});
   }
 
   Future<List<String>> getTableNames() async => [
