@@ -112,3 +112,54 @@ using (
   bucket_id = 'driver-documents'
   and public.sta_can_access_driver_document((storage.foldername(name))[1])
 );
+
+
+-- Restrictive guards ensure any pre-existing permissive Storage policies cannot
+-- widen access to identity documents in this bucket.
+drop policy if exists sta_driver_documents_select_guard on storage.objects;
+create policy sta_driver_documents_select_guard
+on storage.objects
+as restrictive
+for select
+to authenticated
+using (
+  bucket_id <> 'driver-documents'
+  or public.sta_can_access_driver_document((storage.foldername(name))[1])
+);
+
+drop policy if exists sta_driver_documents_insert_guard on storage.objects;
+create policy sta_driver_documents_insert_guard
+on storage.objects
+as restrictive
+for insert
+to authenticated
+with check (
+  bucket_id <> 'driver-documents'
+  or (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists sta_driver_documents_update_guard on storage.objects;
+create policy sta_driver_documents_update_guard
+on storage.objects
+as restrictive
+for update
+to authenticated
+using (
+  bucket_id <> 'driver-documents'
+  or public.sta_can_access_driver_document((storage.foldername(name))[1])
+)
+with check (
+  bucket_id <> 'driver-documents'
+  or public.sta_can_access_driver_document((storage.foldername(name))[1])
+);
+
+drop policy if exists sta_driver_documents_delete_guard on storage.objects;
+create policy sta_driver_documents_delete_guard
+on storage.objects
+as restrictive
+for delete
+to authenticated
+using (
+  bucket_id <> 'driver-documents'
+  or public.sta_can_access_driver_document((storage.foldername(name))[1])
+);
