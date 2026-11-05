@@ -49,11 +49,12 @@ class RideProvider extends ChangeNotifier {
     String? vehicleType, String? region}) async {
     await _nearbyDriversSubscription?.cancel();
     try {
-      final rows = await _db.rpc('sta_nearby_drivers', params: {
+      final rows = await _db.rpc('sta_nearby_drivers_v2', params: {
         'p_latitude': lat, 'p_longitude': lng,
         'p_vehicle_type': vehicleType == null || vehicleType == 'All'
             ? null : Vehicle.getStandardizedType(vehicleType),
         'p_region': region,
+        'p_radius_meters': 15000,
       });
       _nearbyDrivers = {
         for (final row in (rows as List))
