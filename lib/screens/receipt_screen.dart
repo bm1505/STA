@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -100,13 +99,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 
     DateTime dt;
     var ts = widget.tripData['timestamp'];
-    if (ts is Timestamp) {
-      dt = ts.toDate();
-    } else if (ts is String) {
-      dt = DateTime.parse(ts);
-    } else {
-      dt = DateTime.now();
-    }
+    dt = DateTime.tryParse(ts?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
     String formattedDate = DateFormat('MMMM dd, yyyy').format(dt);
     String formattedTime = DateFormat('hh:mm a').format(dt);
 
