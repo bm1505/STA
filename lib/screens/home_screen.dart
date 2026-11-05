@@ -306,6 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_isMapReady) return;
     if (_pickupLatLng != null && _dropoffLatLng != null) {
       if (mounted) setState(() { _isCalculatingFare = true; _estimatedFare = 0; });
+      try {
       final route = await RouteService.getRouteInfo(
         _pickupLatLng!.latitude.toString(),
         _pickupLatLng!.longitude.toString(),
@@ -345,6 +346,19 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           }
         });
+      }
+      } catch (error) {
+        debugPrint('Route or server fare estimate failed: $error');
+        if (mounted) {
+          setState(() {
+            _routeInfo = null;
+            _estimatedFare = 0;
+            _isCalculatingFare = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Route or fare estimate is unavailable. Please try again.')),
+          );
+        }
       }
     } else if (mounted) {
       setState(() { _routeInfo = null; _estimatedFare = 0; _isCalculatingFare = false; });
