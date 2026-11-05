@@ -157,25 +157,45 @@ class DriverRideProvider extends ChangeNotifier {
 
   void _listenForNewRequests(UserModel driver) {
     _requestsSubscription?.cancel();
-    final vehicle = Vehicle.getStandardizedType(driver.vehicleType ?? 'Car');
     final start = DateTime.now().toUtc();
+    final offeredRideIds = <String>{};
     _requestsSubscription = _db.from('ride_requests').stream(primaryKey: ['id'])
-      .eq('status', 'requesting').listen((rows) {
+      .eq('status', 'requesting').listen((rows) async {
+        final visibleIds = rows.map((row) => row['id'].toString()).toSet();
+        offeredRideIds.removeWhere((id) => !visibleIds.contains(id));
         for (final row in rows) {
-          if (row['vehicle_type'] != vehicle) continue;
-          final created = DateTime.tryParse(row['created_at'] ?? '');
+          final rideId = row['id']?.toString();
+          if (rideId == null || offeredRideIds.contains(rideId)) continue;
+          final created = DateTime.tryParse(row['created_at']?.toString() ?? '');
           if (created == null || created.isBefore(start.subtract(const Duration(seconds: 5)))) continue;
-          if (driver.region != null && row['ride_data'] is Map &&
-              row['ride_data']['region'] != null &&
-              row['ride_data']['region'] != driver.region) continue;
-          if (_status == DriverRideStatus.idle && !isBlocked) {
+          if (row['vehicle_type'] != Vehicle.getStandardizedType(driver.vehicleType ?? 'Car')) continue;
+          if (_status != DriverRideStatus.idle || isBlocked || !driver.isVerified) continue;
+          final rideData = row['ride_data'] is Map
+              ? Map<String, dynamic>.from(row['ride_data'] as Map)
+              : <String, dynamic>{};
+          if (driver.region != null && rideData['region'] != null &&
+              rideData['region'] != driver.region) continue;
+          try {
+            final matches = await _db.rpc('sta_nearby_drivers_v2', params: {
+              'p_latitude': row['pickup_latitude'],
+              'p_longitude': row['pickup_longitude'],
+              'p_vehicle_type': row['vehicle_type'],
+              'p_region': driver.region,
+              'p_radius_meters': 15000,
+            }) as List;
+            final isMatched = matches.any((match) =>
+                match is Map && match['driver_id']?.toString() == driver.id);
+            if (!isMatched || _status != DriverRideStatus.idle || isBlocked) continue;
+            offeredRideIds.add(rideId);
             final data = Map<String, dynamic>.from(row);
-            data['rideId'] = row['id'];
+            data['rideId'] = rideId;
             SoundService.playNewRequest();
             _rideRequestController.add(data);
+          } catch (error) {
+            debugPrint('Smart driver matching failed for ride $rideId: $error');
           }
         }
-      }, onError: (e) => debugPrint('Ride request stream error: $e'));
+      }, onError: (error) => debugPrint('Ride request stream error: $error'));
   }
 
   Future<bool> acceptRide(Map<String, dynamic> data, UserModel driverProfile) async {
