@@ -26,6 +26,7 @@ import 'screens/splash_screen.dart';
 import 'screens/driver_registration_flow.dart';
 import 'screens/receipt_screen.dart';
 import 'screens/location_picker_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'utils/theme.dart';
 import 'models/user.dart';
 
@@ -110,6 +111,10 @@ class MyApp extends StatelessWidget {
               if (settings.name == '/wallet') {
                 return MaterialPageRoute(
                     builder: (context) => const WalletScreen());
+              }
+              if (settings.name == '/notifications') {
+                return MaterialPageRoute(
+                    builder: (context) => const NotificationsScreen());
               }
               if (settings.name == '/admin-home') {
                 return MaterialPageRoute(
