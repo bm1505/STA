@@ -528,7 +528,6 @@ class DatabaseService {
       'sos_alerts': ['id'],
       'ride_ratings': ['id'],
       'ride_safety_events': ['id'],
-      'ride_ratings': ['id'],
     };
     final keys = primaryKeys[tableName];
     if (keys == null) throw ArgumentError('Table is not available in the STA admin explorer');
@@ -631,7 +630,7 @@ class DatabaseService {
       'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
       'trips', 'wallets', 'wallet_transactions', 'payments',
       'withdrawal_requests', 'notification_broadcasts', 'app_settings',
-      'chat_messages', 'sos_alerts', 'ride_ratings',
+      'chat_messages', 'sos_alerts', 'ride_ratings', 'ride_safety_events',
     };
     if (!allowed.contains(tableName)) throw ArgumentError('Unknown table');
     final rows = await _db.from(tableName).select();
