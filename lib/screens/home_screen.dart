@@ -16,6 +16,7 @@ import '../providers/auth_provider.dart';
 import '../providers/ride_provider.dart';
 import '../models/vehicle.dart';
 import '../services/route_service.dart';
+import '../services/database_service.dart';
 import '../services/localization_service.dart';
 import '../services/voice_service.dart';
 import '../services/visual_positioning_service.dart';
@@ -35,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Vehicle> _vehicles = [];
   RouteInfo? _routeInfo;
+  double _estimatedFare = 0;
+  bool _isCalculatingFare = false;
   Vehicle? _selectedVehicle;
   LatLng? _currentLatLng;
   LatLng? _pickupLatLng;
@@ -302,18 +305,31 @@ class _HomeScreenState extends State<HomeScreen> {
   void _updateRoute() async {
     if (!_isMapReady) return;
     if (_pickupLatLng != null && _dropoffLatLng != null) {
+      if (mounted) setState(() { _isCalculatingFare = true; _estimatedFare = 0; });
       final route = await RouteService.getRouteInfo(
         _pickupLatLng!.latitude.toString(),
         _pickupLatLng!.longitude.toString(),
         _dropoffLatLng!.latitude.toString(),
         _dropoffLatLng!.longitude.toString(),
       );
+      final vehicle = _selectedVehicle;
+      final estimate = vehicle == null ? null : await DatabaseService.instance.estimateFare(
+        vehicleType: vehicle.name,
+        distanceMeters: route.distance * 1000,
+        durationSeconds: route.duration * 60,
+        pickupLatitude: _pickupLatLng!.latitude,
+        pickupLongitude: _pickupLatLng!.longitude,
+      );
       if (mounted) {
         // Wrap in post-frame callback to avoid "setstate during build" or font assertion errors
         // especially if this is triggered rapidly during a transition.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          setState(() => _routeInfo = route);
+          setState(() {
+            _routeInfo = route;
+            _estimatedFare = (estimate?['estimated_fare'] as num?)?.toDouble() ?? 0;
+            _isCalculatingFare = false;
+          });
           if (_isMapReady &&
               _pickupLatLng!.latitude.isFinite &&
               _pickupLatLng!.longitude.isFinite &&
@@ -330,6 +346,8 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       }
+    } else if (mounted) {
+      setState(() { _routeInfo = null; _estimatedFare = 0; _isCalculatingFare = false; });
     }
   }
 
@@ -537,12 +555,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         "UMBALI: ${_routeInfo?.distance.toStringAsFixed(1) ?? '--'} KM"),
                     const SizedBox(height: 4),
                     _infoText(
-                        "BEI: TZS ${NumberFormat('#,###').format(_selectedVehicle?.calculateFare(_routeInfo?.distance ?? 0, _routeInfo?.duration ?? 0) ?? 0)}"),
+                        _isCalculatingFare
+                            ? "BEI: Inakadiria..."
+                            : _estimatedFare > 0
+                                ? "BEI: TZS ${NumberFormat('#,###').format(_estimatedFare)}"
+                                : "BEI: Haijapatikana"),
                   ],
                 ),
               ),
               ElevatedButton(
-                onPressed: (_dropoffLatLng != null)
+                onPressed: (_dropoffLatLng != null && _estimatedFare > 0)
                     ? () => _handleRideRequest()
                     : null,
                 style: ElevatedButton.styleFrom(
@@ -617,8 +639,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleRideRequest() {
     Navigator.pushNamed(context, '/ride-request', arguments: {
       'vehicle': _selectedVehicle,
-      'fare': _selectedVehicle?.calculateFare(
-          _routeInfo!.distance, _routeInfo!.duration),
       'pickup': _pickupController.text,
       'dropoff': _dropoffController.text,
       'pickupLatLng': _pickupLatLng!,
@@ -824,15 +844,20 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedVehicle = vehicle;
         });
 
-        // Hapa ndipo tunampeleka RideRequestScreen moja kwa moja
+        if (_pickupLatLng == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location is not available. Enable GPS or choose a pickup point first.')),
+          );
+          return;
+        }
+        // Open booking with the actual pickup point; route and fare are calculated server-side.
         Navigator.pushNamed(context, '/ride-request', arguments: {
           'vehicle': vehicle,
-          'fare': vehicle.baseFare,
           'pickup': _pickupController.text == "Locating..."
               ? "Current Location"
               : _pickupController.text,
           'dropoff': "Where to?.",
-          'pickupLatLng': _pickupLatLng ?? const LatLng(-3.37, 36.68),
+          'pickupLatLng': _pickupLatLng,
           'dropoffLatLng': null,
         });
       },
