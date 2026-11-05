@@ -31,20 +31,23 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     setState(() => _isSending = true);
 
     try {
-      await Supabase.instance.client.from('notification_broadcasts').insert({
+      final result = await Supabase.instance.client.from('notification_broadcasts').insert({
         'title': _titleController.text.trim(),
         'body': _bodyController.text.trim(),
         'target_group': _targetGroup,
         'status': 'pending',
         'created_by': Supabase.instance.client.auth.currentUser?.id,
-      });
+      }).select('status').single();
+      final delivered = result['status'] == 'sent';
 
-      debugPrint("Notification broadcast recorded in Supabase.");
+      debugPrint("Notification broadcast status: ${result['status']}");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Notification delivered to the in-app inboxes for $_targetGroup."),
+            content: Text(delivered
+                ? "Notification delivered to the in-app inboxes for $_targetGroup."
+                : "Broadcast saved but delivery is still pending. Apply the notification migration before expecting inbox delivery."),
             backgroundColor: Colors.green,
           ),
         );
