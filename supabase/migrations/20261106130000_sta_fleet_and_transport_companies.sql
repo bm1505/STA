@@ -195,6 +195,63 @@ $$;
 revoke all on function public.sta_create_transport_organization(text,text,text,text,text) from public;
 grant execute on function public.sta_create_transport_organization(text,text,text,text,text) to authenticated;
 
+create or replace function public.sta_list_org_members(p_org_id uuid)
+returns table(user_id uuid,member_name text,phone_number text,member_role text,member_status text)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+begin
+  if not public.sta_is_org_member(p_org_id) then
+    raise exception 'Organization access required' using errcode = '42501';
+  end if;
+  return query
+  select m.user_id,
+    coalesce(p.user_data->>'name',p.full_name,'STA user'),
+    p.phone_number,m.role,m.status
+  from public.organization_members m
+  join public.profiles p on p.id=m.user_id
+  where m.organization_id=p_org_id
+  order by case when m.role='owner' then 0 when m.role='manager' then 1 else 2 end,m.joined_at;
+end;
+$;
+revoke all on function public.sta_list_org_members(uuid) from public;
+grant execute on function public.sta_list_org_members(uuid) to authenticated;
+
+create or replace function public.sta_search_org_users(p_org_id uuid,p_query text)
+returns table(user_id uuid,display_name text,email text,phone_number text,account_role text)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+begin
+  if not public.sta_is_org_member(p_org_id,array['owner','manager']) then
+    raise exception 'Organization manager access required' using errcode = '42501';
+  end if;
+  if length(trim(coalesce(p_query,''))) < 3 then
+    raise exception 'Enter at least three characters to search';
+  end if;
+  return query
+  select p.id,coalesce(p.user_data->>'name',p.full_name,'STA user'),p.email,p.phone_number,p.role
+  from public.profiles p
+  where p.is_active=true
+    and p.id <> auth.uid()
+    and not exists(select 1 from public.organization_members m where m.organization_id=p_org_id and m.user_id=p.id)
+    and (
+      coalesce(p.email,'') ilike '%'||trim(p_query)||'%'
+      or coalesce(p.phone_number,'') ilike '%'||trim(p_query)||'%'
+      or coalesce(p.full_name,'') ilike '%'||trim(p_query)||'%'
+      or coalesce(p.user_data->>'name','') ilike '%'||trim(p_query)||'%'
+    )
+  order by p.full_name
+  limit 20;
+end;
+$;
+revoke all on function public.sta_search_org_users(uuid,text) from public;
+grant execute on function public.sta_search_org_users(uuid,text) to authenticated;
+
 create or replace function public.sta_add_org_member(
   p_org_id uuid,p_user_id uuid,p_role text
 )
