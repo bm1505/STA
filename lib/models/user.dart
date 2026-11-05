@@ -33,7 +33,6 @@ class UserModel {
   final DateTime? lastPhotoUpdate;
   final String? homeAddress;
   final String? workAddress;
-  final String? fcmToken;
   final String? driverLevel;
   final double? earnings;
   final String? department;
@@ -74,7 +73,6 @@ class UserModel {
     this.lastPhotoUpdate,
     this.homeAddress,
     this.workAddress,
-    this.fcmToken,
     this.driverLevel,
     this.earnings,
     this.department,
@@ -195,7 +193,6 @@ class UserModel {
       lastPhotoUpdate: parseDateNullable(json['lastPhotoUpdate']),
       homeAddress: json['homeAddress'],
       workAddress: json['workAddress'],
-      fcmToken: json['fcmToken'],
       driverLevel: json['driverLevel'],
       earnings: (json['earnings'] as num?)?.toDouble(),
       department: json['department'],
@@ -244,7 +241,6 @@ class UserModel {
     }
     if (homeAddress != null) data['homeAddress'] = homeAddress;
     if (workAddress != null) data['workAddress'] = workAddress;
-    if (fcmToken != null) data['fcmToken'] = fcmToken;
     if (driverLevel != null) data['driverLevel'] = driverLevel;
     if (earnings != null) data['earnings'] = earnings;
     if (department != null) data['department'] = department;
@@ -279,7 +275,6 @@ class UserModel {
     DateTime? lastPhotoUpdate,
     String? homeAddress,
     String? workAddress,
-    String? fcmToken,
     String? driverLevel,
     double? earnings,
     String? department,
@@ -315,7 +310,6 @@ class UserModel {
       lastPhotoUpdate: lastPhotoUpdate ?? this.lastPhotoUpdate,
       homeAddress: homeAddress ?? this.homeAddress,
       workAddress: workAddress ?? this.workAddress,
-      fcmToken: fcmToken ?? this.fcmToken,
       driverLevel: driverLevel ?? this.driverLevel,
       earnings: earnings ?? this.earnings,
       department: department ?? this.department,
