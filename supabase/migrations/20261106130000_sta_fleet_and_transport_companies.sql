@@ -221,6 +221,32 @@ $$;
 revoke all on function public.sta_create_transport_organization(text,text,text,text,text) from public;
 grant execute on function public.sta_create_transport_organization(text,text,text,text,text) to authenticated;
 
+create or replace function public.sta_add_org_member(
+  p_org_id uuid,p_user_id uuid,p_role text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+begin
+  if not public.sta_is_org_member(p_org_id,array['owner','manager']) then
+    raise exception 'Organization owner or manager access required' using errcode = '42501';
+  end if;
+  if p_role not in ('manager','fleet_manager','finance','dispatcher','viewer') then
+    raise exception 'Unsupported organization member role';
+  end if;
+  if not exists(select 1 from public.profiles where id=p_user_id and is_active=true) then
+    raise exception 'Active STA account not found';
+  end if;
+  insert into public.organization_members(organization_id,user_id,role,status)
+  values(p_org_id,p_user_id,p_role,'active')
+  on conflict(organization_id,user_id) do update set role=excluded.role,status='active';
+end;
+$;
+revoke all on function public.sta_add_org_member(uuid,uuid,text) from public;
+grant execute on function public.sta_add_org_member(uuid,uuid,text) to authenticated;
+
 create or replace function public.sta_list_my_organizations()
 returns table(id uuid,name text,organization_type text,role text,created_at timestamptz)
 language sql
@@ -549,6 +575,24 @@ drop trigger if exists sta_sync_trip_vehicle_trigger on public.trips;
 create trigger sta_sync_trip_vehicle_trigger
 before insert on public.trips
 for each row execute function public.sta_sync_trip_vehicle();
+
+-- Platform administrators can audit fleet records without becoming organization members.
+create policy transport_orgs_admin_read on public.transport_organizations
+  for select to authenticated using (public.sta_is_active_admin());
+create policy org_members_admin_read on public.organization_members
+  for select to authenticated using (public.sta_is_active_admin());
+create policy transport_branches_admin_read on public.transport_branches
+  for select to authenticated using (public.sta_is_active_admin());
+create policy fleet_vehicles_admin_read on public.fleet_vehicles
+  for select to authenticated using (public.sta_is_active_admin());
+create policy fleet_assignments_admin_read on public.fleet_vehicle_assignments
+  for select to authenticated using (public.sta_is_active_admin());
+create policy fleet_fuel_admin_read on public.fleet_fuel_logs
+  for select to authenticated using (public.sta_is_active_admin());
+create policy fleet_maintenance_admin_read on public.fleet_maintenance_records
+  for select to authenticated using (public.sta_is_active_admin());
+create policy transport_contracts_admin_read on public.transport_contracts
+  for select to authenticated using (public.sta_is_active_admin());
 
 -- Realtime streams for fleet dashboards.
 do $$
