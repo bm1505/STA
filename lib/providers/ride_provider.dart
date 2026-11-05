@@ -265,7 +265,11 @@ class RideProvider extends ChangeNotifier {
 
   void clearRide() {
     _currentRide = null; _driverLocation = null; _driverDetails = null;
-    _isDriverFound = false; _rideSubscription?.cancel(); _chatSubscription?.cancel();
+    _isDriverFound = false;
+    _nearbyDrivers.clear();
+    _nearbyDriversSubscription?.cancel();
+    _rideSubscription?.cancel();
+    _chatSubscription?.cancel();
     notifyListeners();
   }
 
