@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/theme.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
@@ -31,18 +31,15 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     setState(() => _isSending = true);
 
     try {
-      // Logic ya kutuma notification kupitia Backend/Firebase
-      // Kwa sasa tunasimulate na ku-log kwenye database
-      // 1. Rekodi kwenye Firestore (Hii itachochea Cloud Function ya Push)
-      await FirebaseFirestore.instance.collection('broadcasts').add({
-        'title': _titleController.text,
-        'body': _bodyController.text,
-        'target': _targetGroup,
-        'timestamp': FieldValue.serverTimestamp(),
+      await Supabase.instance.client.from('notification_broadcasts').insert({
+        'title': _titleController.text.trim(),
+        'body': _bodyController.text.trim(),
+        'target_group': _targetGroup,
         'status': 'pending',
+        'created_by': Supabase.instance.client.auth.currentUser?.id,
       });
 
-      debugPrint("Notification broadcast scheduled in Firestore");
+      debugPrint("Notification broadcast recorded in Supabase.");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
