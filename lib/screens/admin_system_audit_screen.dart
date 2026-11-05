@@ -800,21 +800,39 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
       children: [
         Text("Infrastructure Health", style: GoogleFonts.inter(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
         const SizedBox(height: 30),
-        Container(
-          padding: const EdgeInsets.all(40),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.01),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
-          ),
-          child: Column(
-            children: [
-              _healthStatusRow("Google Maps API", "99.99%", "Optimal", Colors.green),
-              _healthStatusRow("Gemini AI Engine", "98.5%", "Balanced", Colors.blue),
-              _healthStatusRow("Firebase Cloud Firestore", "Connected", "Stable", Colors.green),
-              _healthStatusRow("Notification Gateway (FCM)", "Active", "Nominal", Colors.orange),
-            ],
-          ),
+        FutureBuilder<Map<String, bool>>(
+          future: DatabaseService.instance.getInfrastructureHealth(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final health = snapshot.data ?? const <String, bool>{};
+            Widget row(String label, bool configured, String ready, String missing) =>
+                _healthStatusRow(
+                  label,
+                  configured ? ready : missing,
+                  configured ? "Available" : "Not configured",
+                  configured ? Colors.green : Colors.orangeAccent,
+                );
+            return Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.01),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+              ),
+              child: Column(
+                children: [
+                  row("Supabase Database", health['database'] == true, "Connected", "Unavailable"),
+                  row("STA AI Service", health['ai'] == true, "Configured", "Missing server secret or deployment"),
+                  row("Traffic-aware Routing", health['traffic'] == true, "Configured", "Missing server key or deployment"),
+                  row("Push Notifications", health['push'] == true, "Configured", "Provider not configured"),
+                  row("M-Pesa Payment Gateway", health['payments'] == true, "Configured", "Provider not configured"),
+                  row("Fleet & Company Management", health['fleet'] == true, "Configured", "Module not yet implemented"),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
