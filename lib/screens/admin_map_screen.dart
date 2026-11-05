@@ -17,6 +17,7 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
   final Map<String, Map<String, dynamic>> _onlineDrivers = {};
   final Map<String, Map<String, dynamic>> _activeRides = {};
   final Map<String, Map<String, dynamic>> _demandPoints = {};
+  List<Map<String, dynamic>> _forecastPoints = [];
   bool _showHeatmap = true;
   final MapController _mapController = MapController();
 
@@ -29,6 +30,18 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
   void initState() {
     super.initState();
     _setupListeners();
+    _loadDemandForecast();
+  }
+
+  Future<void> _loadDemandForecast() async {
+    try {
+      final result = await _db.rpc('sta_demand_forecast', params: {'p_limit': 60});
+      if (result is! List) return;
+      final points = result.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      if (mounted) setState(() => _forecastPoints = points);
+    } catch (error) {
+      debugPrint('Smart demand forecast unavailable: $error');
+    }
   }
 
   void _setupListeners() {
@@ -187,6 +200,33 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                         useRadiusInMeter: true,
                         color: Colors.orange.withValues(alpha: 0.2),
                         borderStrokeWidth: 0,
+                      );
+                    }).toList(),
+                  ),
+
+                // Historical next-hour demand forecast. This is shown separately from live requests.
+                if (_showHeatmap && _forecastPoints.isNotEmpty)
+                  CircleLayer(
+                    circles: _forecastPoints.map((forecast) {
+                      final level = forecast['demand_level']?.toString() ?? 'normal';
+                      final color = level == 'high'
+                          ? Colors.red
+                          : level == 'busy'
+                              ? Colors.orange
+                              : Colors.lightBlue;
+                      final predicted = (forecast['predicted_requests'] as num?)?.toDouble() ?? 0;
+                      final current = (forecast['current_requests'] as num?)?.toDouble() ?? 0;
+                      final radius = (180 + ((predicted + current) * 180)).clamp(180, 1400).toDouble();
+                      return CircleMarker(
+                        point: LatLng(
+                          (forecast['latitude'] as num).toDouble(),
+                          (forecast['longitude'] as num).toDouble(),
+                        ),
+                        radius: radius,
+                        useRadiusInMeter: true,
+                        color: color.withValues(alpha: 0.12),
+                        borderColor: color.withValues(alpha: 0.45),
+                        borderStrokeWidth: 1.5,
                       );
                     }).toList(),
                   ),
