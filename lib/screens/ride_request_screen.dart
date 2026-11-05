@@ -2235,6 +2235,29 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                             : "-- KM"),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(_trafficAware ? Icons.traffic : Icons.route,
+                        size: 14, color: _trafficAware ? Colors.greenAccent : Colors.white54),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _trafficAware ? 'Live traffic included' : 'Traffic data unavailable; using road-route estimate',
+                        style: const TextStyle(color: Colors.white60, fontSize: 10),
+                      ),
+                    ),
+                    Text(
+                      _demandLevel == 'high' ? 'High demand' :
+                      _demandLevel == 'busy' ? 'Busy area' : 'Normal demand',
+                      style: TextStyle(
+                        color: _demandLevel == 'normal' ? Colors.white54 : Colors.orangeAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
                 Divider(height: 25, color: Colors.white.withValues(alpha: 0.1)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
