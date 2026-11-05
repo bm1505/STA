@@ -522,10 +522,10 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
   }
 
   Widget _statCard(String title, String collection, IconData icon, Color color) {
-    return StreamBuilder<int>(
-      stream: DatabaseService.instance.getAdminCountStream(collection),
+    return StreamBuilder<String>(
+      stream: DatabaseService.instance.getAdminMetricStream(collection),
       builder: (context, snapshot) {
-        String val = snapshot.hasData ? snapshot.data!.toString() : "...";
+        String val = snapshot.data ?? "...";
         return Container(
           padding: const EdgeInsets.all(18), // Imepunguzwa kutoka 25
           decoration: BoxDecoration(
