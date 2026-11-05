@@ -165,8 +165,13 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                 TileLayer(
                   urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                   userAgentPackageName: 'com.sta.ride',
-                  maxNativeZoom: 20,
+                  maxNativeZoom: 19,
                   maxZoom: 20,
+                ),
+                RichAttributionWidget(
+                  attributions: [
+                    TextSourceAttribution('© OpenStreetMap contributors'),
+                  ],
                 ),
 
                 // Demand Heatmap Layer (Enhanced Visuals)
