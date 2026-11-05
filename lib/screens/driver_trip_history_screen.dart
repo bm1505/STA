@@ -6,7 +6,6 @@ import '../services/database_service.dart';
 import '../services/localization_service.dart';
 import '../utils/theme.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverTripHistoryScreen extends StatefulWidget {
   final String driverId;
@@ -37,21 +36,8 @@ class _DriverTripHistoryScreenState extends State<DriverTripHistoryScreen> {
     trips.sort((a, b) {
       DateTime dtA, dtB;
       
-      if (a['timestamp'] is Timestamp) {
-        dtA = (a['timestamp'] as Timestamp).toDate();
-      } else if (a['timestamp'] is String) {
-        dtA = DateTime.parse(a['timestamp']);
-      } else {
-        dtA = DateTime.now();
-      }
-
-      if (b['timestamp'] is Timestamp) {
-        dtB = (b['timestamp'] as Timestamp).toDate();
-      } else if (b['timestamp'] is String) {
-        dtB = DateTime.parse(b['timestamp']);
-      } else {
-        dtB = DateTime.now();
-      }
+      dtA = DateTime.tryParse(a['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      dtB = DateTime.tryParse(b['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
       
       return dtB.compareTo(dtA);
     });
@@ -190,13 +176,7 @@ class _DriverTripHistoryScreenState extends State<DriverTripHistoryScreen> {
 
   Widget _buildTripCard(Map<String, dynamic> trip, String lang, bool isDark) {
     DateTime dt;
-    if (trip['timestamp'] is Timestamp) {
-      dt = (trip['timestamp'] as Timestamp).toDate();
-    } else if (trip['timestamp'] is String) {
-      dt = DateTime.parse(trip['timestamp']);
-    } else {
-      dt = DateTime.now();
-    }
+    dt = DateTime.tryParse(trip['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
     String formattedDate = DateFormat('MMM d, hh:mm a').format(dt);
 
     return Container(
