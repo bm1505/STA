@@ -19,6 +19,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
   List<Map<String, dynamic>> _fuelLogs = [];
   List<Map<String, dynamic>> _maintenance = [];
   List<Map<String, dynamic>> _contracts = [];
+  List<Map<String, dynamic>> _members = [];
   Map<String, dynamic> _metrics = {};
   String? _organizationId;
   bool _loading = true;
@@ -60,6 +61,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _db.from('fleet_fuel_logs').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.from('fleet_maintenance_records').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.from('transport_contracts').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
+        _db.rpc('sta_list_org_members', params: {'p_org_id': id}),
       ]);
       final metricRows = results[0] as List;
       if (!mounted) return;
@@ -70,6 +72,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _fuelLogs = (results[3] as List).map((r) => Map<String, dynamic>.from(r)).toList();
         _maintenance = (results[4] as List).map((r) => Map<String, dynamic>.from(r)).toList();
         _contracts = (results[5] as List).map((r) => Map<String, dynamic>.from(r)).toList();
+        _members = (results[6] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
         _busy = false;
       });
     } catch (error) {
@@ -287,6 +290,94 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
     } catch (error) { _showMessage('Could not load verified drivers: $error'); }
   }
 
+  Future<void> _addMember() async {
+    final orgId = _organizationId;
+    if (orgId == null) return;
+    final query = TextEditingController();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Find STA team member'),
+        content: TextField(
+          controller: query,
+          decoration: const InputDecoration(labelText: 'Name, email or phone (at least 3 characters)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Search')),
+        ],
+      ),
+    );
+    if (accepted != true) { query.dispose(); return; }
+    try {
+      final result = await _db.rpc('sta_search_org_users', params: {
+        'p_org_id': orgId, 'p_query': query.text.trim(),
+      });
+      final matches = (result as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      if (matches.isEmpty) {
+        _showMessage('No active STA account matched that search.');
+        return;
+      }
+      if (!mounted) return;
+      final selected = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        backgroundColor: const Color(0xFF17212A),
+        builder: (context) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Select team member', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              ...matches.map((member) => ListTile(
+                title: Text(member['display_name']?.toString() ?? 'STA user', style: const TextStyle(color: Colors.white)),
+                subtitle: Text('${member['email'] ?? member['phone_number'] ?? ''} · ${member['account_role'] ?? ''}',
+                  style: const TextStyle(color: Colors.white54)),
+                onTap: () => Navigator.pop(context, member),
+              )),
+            ],
+          ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+      var role = 'fleet_manager';
+      final add = await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text('Add ${selected['display_name']}'),
+            content: DropdownButtonFormField<String>(
+              value: role,
+              decoration: const InputDecoration(labelText: 'Organization role'),
+              items: const [
+                DropdownMenuItem(value: 'manager', child: Text('Manager')),
+                DropdownMenuItem(value: 'fleet_manager', child: Text('Fleet manager')),
+                DropdownMenuItem(value: 'finance', child: Text('Finance')),
+                DropdownMenuItem(value: 'dispatcher', child: Text('Dispatcher')),
+                DropdownMenuItem(value: 'viewer', child: Text('Viewer')),
+              ],
+              onChanged: (value) => setDialogState(() => role = value ?? role),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add member')),
+            ],
+          ),
+        ),
+      );
+      if (add == true) {
+        await _db.rpc('sta_add_org_member', params: {
+          'p_org_id': orgId,
+          'p_user_id': selected['user_id'],
+          'p_role': role,
+        });
+        await _loadOrganizationData();
+      }
+    } catch (error) {
+      _showMessage('Could not add team member: $error');
+    } finally {
+      query.dispose();
+    }
+  }
+
   Future<void> _logFuel() async {
     final orgId = _organizationId;
     if (orgId == null || _vehicles.isEmpty) { _showMessage('Add a vehicle first.'); return; }
@@ -423,11 +514,15 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         content: Row(children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Analyzing real fleet records...')]),
       ),
     );
+    var loadingDialogOpen = true;
     try {
       final response = await _db.functions.invoke('sta-ai', body: {
         'action': 'fleet_insights', 'organizationId': id,
       });
-      if (mounted) Navigator.pop(context);
+      if (mounted && loadingDialogOpen) {
+        Navigator.pop(context);
+        loadingDialogOpen = false;
+      }
       if (response.status != 200 || response.data is! Map) throw StateError('AI insights unavailable');
       final insight = response.data['insights']?.toString() ?? 'No insight was returned.';
       if (!mounted) return;
@@ -437,7 +532,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
       ));
     } catch (error) {
-      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      if (mounted && loadingDialogOpen) Navigator.pop(context);
       _showMessage('Fleet AI is unavailable: $error');
     }
   }
@@ -561,6 +656,15 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                         ),
                       ),
                     )),
+                  _sectionTitle('Team', _addMember, 'Add member'),
+                  ..._members.map((member) => ListTile(
+                    leading: const Icon(Icons.person_outline, color: Colors.white60),
+                    title: Text(member['member_name']?.toString() ?? 'STA member', style: const TextStyle(color: Colors.white)),
+                    subtitle: Text('${member['member_role']} · ${member['member_status']}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    trailing: Text(member['phone_number']?.toString() ?? '',
+                      style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  )),
                   _sectionTitle('Branches', _addBranch, 'Add branch'),
                   if (_branches.isEmpty)
                     const Text('No branches registered.', style: TextStyle(color: Colors.white54))
@@ -582,6 +686,21 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                       color: record['status'] == 'completed' ? Colors.greenAccent : Colors.orangeAccent),
                     title: Text(record['maintenance_type']?.toString() ?? 'Maintenance', style: const TextStyle(color: Colors.white)),
                     subtitle: Text('${record['status']} · ${_currency(record['cost'])}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    trailing: ['scheduled','in_progress'].contains(record['status'])
+                        ? IconButton(
+                            tooltip: 'Mark completed',
+                            icon: const Icon(Icons.check_circle_outline, color: Colors.greenAccent),
+                            onPressed: () async {
+                              try {
+                                await _db.rpc('sta_set_vehicle_maintenance_status', params: {
+                                  'p_record_id': record['id'],
+                                  'p_status': 'completed',
+                                });
+                                await _loadOrganizationData();
+                              } catch (error) { _showMessage('Could not update maintenance: $error'); }
+                            },
+                          )
+                        : null,
                   )),
                   _sectionTitle('Transport contracts', _addContract, 'Add contract'),
                   ..._contracts.map((contract) => ListTile(
