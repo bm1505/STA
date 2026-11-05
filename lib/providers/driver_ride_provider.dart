@@ -28,6 +28,7 @@ class DriverRideProvider extends ChangeNotifier {
   double _walletBalance = 0;
   static const double DEBT_THRESHOLD = -20000;
   double _tripDistance = 0;
+  ll.LatLng? _lastTripLocation;
   int _tripSeconds = 0;
   Timer? _tripTimer;
   String? _paymentStatus;
@@ -57,14 +58,10 @@ class DriverRideProvider extends ChangeNotifier {
   }
   double get currentFare => _calculateCurrentFare();
 
-  double _calculateCurrentFare() {
-    final base = (_currentRideData?['estimated_fare'] as num?)?.toDouble() ??
-        (_currentRideData?['final_fare'] as num?)?.toDouble() ?? 3000;
-    if (_status != DriverRideStatus.tripInProgress &&
-        _status != DriverRideStatus.waitingForPayment) return base;
-    final total = base + (_tripDistance / 1000 * 1000) + (_tripSeconds / 60 * 150);
-    return (total / 100).round() * 100.0;
-  }
+  double _calculateCurrentFare() =>
+      (_currentRideData?['final_fare'] as num?)?.toDouble() ??
+      (_currentRideData?['estimated_fare'] as num?)?.toDouble() ??
+      0.0;
 
   ll.LatLng? _point(dynamic lat, dynamic lng) {
     if (lat == null || lng == null) return null;
@@ -109,7 +106,22 @@ class DriverRideProvider extends ChangeNotifier {
     required String userId,
     required bool isOnline,
   }) {
-    _currentLocation = ll.LatLng(latitude, longitude);
+    final nextLocation = ll.LatLng(latitude, longitude);
+    if (_status == DriverRideStatus.tripInProgress) {
+      final previous = _lastTripLocation;
+      if (previous != null) {
+        final deltaMeters = Geolocator.distanceBetween(
+          previous.latitude, previous.longitude,
+          nextLocation.latitude, nextLocation.longitude,
+        );
+        // Ignore GPS jitter and impossible jumps; count only plausible movement.
+        if (deltaMeters >= 5 && deltaMeters <= 500) {
+          _tripDistance += deltaMeters;
+        }
+      }
+      _lastTripLocation = nextLocation;
+    }
+    _currentLocation = nextLocation;
     _currentBearing = heading;
     final driverId = _db.auth.currentUser?.id;
     if (driverId == null || driverId != userId) return;
@@ -214,22 +226,40 @@ class DriverRideProvider extends ChangeNotifier {
   }
 
   Future<void> updateRideStatus(DriverRideStatus newStatus) async {
-    _status = newStatus;
     if (_currentRideData == null) return;
     var value = 'accepted';
-    if (newStatus == DriverRideStatus.arrived) { value = 'driver_arrived'; SoundService.playDriverArrived(); }
-    if (newStatus == DriverRideStatus.tripInProgress) { value = 'in_progress'; _startTripCounters(); SoundService.playTripStarted(); }
+    if (newStatus == DriverRideStatus.arrived) value = 'driver_arrived';
+    if (newStatus == DriverRideStatus.tripInProgress) value = 'in_progress';
     try {
-      await _db.rpc('sta_set_ride_status', params: {'p_ride_id': _currentRideData!['id'], 'p_status': value});
-    } catch (e) { debugPrint('Ride status update failed: $e'); }
+      await _db.rpc('sta_set_ride_status', params: {
+        'p_ride_id': _currentRideData!['id'],
+        'p_status': value,
+      });
+      _status = newStatus;
+      if (newStatus == DriverRideStatus.arrived) SoundService.playDriverArrived();
+      if (newStatus == DriverRideStatus.tripInProgress) {
+        _startTripCounters();
+        SoundService.playTripStarted();
+      }
+    } catch (e) {
+      debugPrint('Ride status update failed: $e');
+      return;
+    }
     notifyListeners();
   }
 
   void _startTripCounters() {
-    _tripSeconds = 0; _tripTimer?.cancel();
+    _tripDistance = 0;
+    _lastTripLocation = _currentLocation;
+    _tripSeconds = 0;
+    _tripTimer?.cancel();
     _tripTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_status == DriverRideStatus.tripInProgress) { _tripSeconds++; notifyListeners(); }
-      else { timer.cancel(); }
+      if (_status == DriverRideStatus.tripInProgress) {
+        _tripSeconds++;
+        notifyListeners();
+      } else {
+        timer.cancel();
+      }
     });
   }
 
@@ -247,19 +277,12 @@ class DriverRideProvider extends ChangeNotifier {
   Future<void> confirmPaymentReceived() async {
     if (_currentRideData == null || _user == null) { _resetRide(); return; }
     try {
-      SoundService.playPaymentSuccess();
-      final trip = Map<String, dynamic>.from(_currentRideData!);
-      trip['id'] = _currentRideData!['id'];
-      trip['driverId'] = _user!.id;
-      trip['fare'] = _currentRideData!['final_fare'];
-      trip['paymentStatus'] = 'paid';
-      trip['status'] = 'paid';
       await _db.rpc('sta_set_ride_status', params: {
-        'p_ride_id': _currentRideData!['id'], 'p_status': 'completed',
+        'p_ride_id': _currentRideData!['id'],
+        'p_status': 'completed',
         'p_payment_status': 'paid',
       });
-      await DatabaseService.instance.recordTrip(trip);
-      await DatabaseService.instance.incrementDriverRides(_user!.id);
+      SoundService.playPaymentSuccess();
     } catch (e) { debugPrint('Payment confirmation failed: $e'); }
     finally { _resetRide(); }
   }
