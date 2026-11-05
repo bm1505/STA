@@ -2,31 +2,40 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RouteService {
-  static const String _apiKey =
-      String.fromEnvironment('GCP_API_KEY');
-
-  // Pata ushauri wa AI kuhusu njia (Smart Routing)
+  // AI advice is generated server-side; provider credentials never ship in the app.
   static Future<String> getAISmartAdvice(
       RouteInfo route, String destinationName) async {
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      final steps = route.steps
+          .map((step) => step.instruction.trim())
+          .where((instruction) => instruction.isNotEmpty)
+          .take(30)
+          .toList();
+      if (steps.isEmpty) {
+        return "Fuata maelekezo ya ramani na endesha kwa usalama.";
+      }
 
-      String stepsSummary = route.steps.map((s) => s.instruction).join(", ");
+      final response = await Supabase.instance.client.functions.invoke(
+        'route-advice',
+        body: {
+          'destination': destinationName,
+          'steps': steps,
+        },
+      );
 
-      final prompt = [
-        Content.text("You are a smart Tanzanian taxi dispatcher. "
-            "The driver is going to $destinationName. The route steps are: $stepsSummary. "
-            "Give a very brief, friendly advice in Swahili (max 15 words) about this route or a smart tip for the driver. "
-            "Use a helpful and encouraging tone.")
-      ];
-
-      final response = await model.generateContent(prompt);
-      return response.text ?? "Safari njema! Fuata ramani kwa usalama.";
+      if (response.status != 200 || response.data is! Map) {
+        return "Fuata ramani na zingatia alama za barabarani.";
+      }
+      final advice = (response.data['advice'] as String?)?.trim();
+      return advice == null || advice.isEmpty
+          ? "Fuata ramani na zingatia alama za barabarani."
+          : advice;
     } catch (e) {
-      return "Kila la heri kwenye safari yako!";
+      debugPrint('Smart route advice unavailable: $e');
+      return "Fuata ramani na zingatia alama za barabarani.";
     }
   }
 
