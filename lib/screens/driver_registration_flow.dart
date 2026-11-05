@@ -520,7 +520,7 @@ class _DriverRegistrationFlowState extends State<DriverRegistrationFlow> {
         return;
       }
 
-      // 3. Update Firestore Profile only if essential uploads succeeded
+      // 3. Save the Supabase profile only if essential uploads succeeded
       if (licenseUrlStr == null || profileUrl == null) {
         _showError(LocalizationService.translate('docs_required', lang));
         return;
