@@ -108,6 +108,7 @@ create table if not exists public.ride_requests (
   estimated_fare numeric(14,2) check (estimated_fare is null or estimated_fare >= 0),
   final_fare numeric(14,2) check (final_fare is null or final_fare >= 0),
   currency text not null default 'TZS',
+  active_call jsonb,
   requested_at timestamptz not null default now(),
   accepted_at timestamptz,
   completed_at timestamptz,
