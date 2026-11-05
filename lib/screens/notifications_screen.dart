@@ -80,7 +80,9 @@ class NotificationsScreen extends StatelessWidget {
                         ? Icons.account_balance_wallet
                         : item['notification_type'] == 'ride_status'
                             ? Icons.local_taxi
-                            : Icons.campaign,
+                            : item['notification_type'] == 'safety_alert'
+                                ? Icons.health_and_safety
+                                : Icons.campaign,
                     color: unread ? const Color(0xFFFFD166) : Colors.white54,
                   ),
                   title: Text(item['title']?.toString() ?? 'STA Notification',
