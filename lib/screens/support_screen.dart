@@ -60,6 +60,17 @@ class SupportScreen extends StatelessWidget {
           children: [
             _buildSupportOption(
               context,
+              Icons.auto_awesome,
+              lang == 'Kiswahili' ? "Uliza STA AI" : "Ask STA AI",
+              lang == 'Kiswahili'
+                  ? "Pata msaada kwa kutumia taarifa za safari zako"
+                  : "Get help using your recent ride information",
+              isDark,
+              () => Navigator.pushNamed(context, '/support-ai'),
+            ),
+            const SizedBox(height: 15),
+            _buildSupportOption(
+              context,
               Icons.chat_bubble_outline,
               lang == 'Kiswahili' ? "Zungumza Nasi" : "Live Chat",
               lang == 'Kiswahili'
