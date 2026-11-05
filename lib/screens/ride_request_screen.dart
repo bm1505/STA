@@ -1311,7 +1311,9 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                         _buildDriverDetailText(LocalizationService.translate(
                                 'rating_label', lang)
                             .replaceFirst('{rating}',
-                                driver?.rating.toStringAsFixed(1) ?? '5.0')),
+                                driver == null || driver.rating <= 0
+                                    ? 'No rating'
+                                    : driver.rating.toStringAsFixed(1))),
                       ],
                     ),
                     Row(
