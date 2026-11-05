@@ -66,7 +66,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       setState(() {
         _isOnline = auth.currentUser!.isOnline;
       });
-      // Ikiwa alikuwa online, hakikisha Firestore imesawazishwa
+      // If the driver was online, reconcile presence with Supabase.
       if (_isOnline) {
         final rideProvider = Provider.of<DriverRideProvider>(context, listen: false);
         rideProvider.updateStatus(
