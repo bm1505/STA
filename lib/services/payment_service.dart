@@ -25,7 +25,7 @@ class PaymentService {
       return {
         'success': true,
         'paymentId': paymentId.toString(),
-        'message': 'Payment request created. Awaiting secure payment processing.',
+        'message': 'Payment request recorded. No mobile-money prompt was sent; funds remain pending until verified.',
       };
     } catch (e) {
       return {'success': false, 'error': e.toString()};
