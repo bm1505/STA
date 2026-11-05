@@ -48,6 +48,9 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
   String? _pickupRegion;
   String? _pickupCity;
   double _calculatedFare = 0.0;
+  int _estimatedDurationSeconds = 0;
+  bool _trafficAware = false;
+  String _demandLevel = 'normal';
   String _selectedPaymentMethod = "Cash";
   List<ll.LatLng> _polylinePoints = [];
   RideProvider? _rideProvider;
@@ -604,11 +607,10 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args == null) return;
 
-    final ll.LatLng pickup = _pickupLatLng ??
-        (args['pickupLatLng'] as ll.LatLng?) ??
-        const ll.LatLng(-3.37, 36.68);
-    
-    if (!pickup.latitude.isFinite) return;
+    final ll.LatLng? pickup =
+        _pickupLatLng ?? (args['pickupLatLng'] as ll.LatLng?);
+    if (pickup == null ||
+        !pickup.latitude.isFinite || !pickup.longitude.isFinite) return;
 
     final vehicle = args['vehicle'] as Vehicle?;
     final ll.LatLng? dropoff =
@@ -624,14 +626,25 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         dropoff.longitude.toString(),
       );
 
+      final fareEstimate = await DatabaseService.instance.estimateFare(
+        vehicleType: vehicle.name,
+        distanceMeters: routeInfo.distance * 1000,
+        durationSeconds: routeInfo.duration * 60,
+        pickupLatitude: pickup.latitude,
+        pickupLongitude: pickup.longitude,
+      );
+      final serverFare = (fareEstimate['estimated_fare'] as num?)?.toDouble() ?? 0;
+      if (serverFare <= 0) throw StateError('Server returned an invalid fare estimate.');
       if (mounted) {
         setState(() {
           _distance = routeInfo.distance;
+          _estimatedDurationSeconds = routeInfo.duration * 60;
+          _trafficAware = routeInfo.trafficAware;
+          _demandLevel = fareEstimate['demand_level']?.toString() ?? 'normal';
           _polylinePoints = routeInfo.polyline
               .map((p) => ll.LatLng(p.latitude, p.longitude))
               .toList();
-          _calculatedFare =
-              vehicle.calculateFare(routeInfo.distance, routeInfo.duration);
+          _calculatedFare = serverFare;
         });
 
         if (_polylinePoints.isNotEmpty &&
@@ -650,7 +663,14 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         }
       }
     } catch (e) {
-      debugPrint("Route loading failed: $e");
+      debugPrint("Route or fare estimation failed: $e");
+      if (mounted) {
+        setState(() {
+          _calculatedFare = 0;
+          _estimatedDurationSeconds = 0;
+          _polylinePoints = [];
+        });
+      }
     }
   }
 
@@ -805,8 +825,12 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final rideProvider = Provider.of<RideProvider>(context, listen: false);
 
-    if (args == null ||
-        (_dropoffLatLng == null && args['dropoffLatLng'] == null)) {
+    final pickup = _pickupLatLng ?? (args?['pickupLatLng'] as ll.LatLng?);
+    final dropoff = _dropoffLatLng ?? (args?['dropoffLatLng'] as ll.LatLng?);
+    if (args == null || pickup == null || dropoff == null ||
+        !pickup.latitude.isFinite || !pickup.longitude.isFinite ||
+        !dropoff.latitude.isFinite || !dropoff.longitude.isFinite ||
+        _calculatedFare <= 0 || _distance <= 0 || _estimatedDurationSeconds <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(LocalizationService.translate(
@@ -832,29 +856,20 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
       userId: user.id,
       riderName: user.name,
       riderPhone: user.phoneNumber,
-      pickupLat: _pickupLatLng?.latitude ??
-          (args['pickupLatLng'] as ll.LatLng?)?.latitude ??
-          0.0,
-      pickupLng: _pickupLatLng?.longitude ??
-          (args['pickupLatLng'] as ll.LatLng?)?.longitude ??
-          0.0,
+      pickupLat: pickup.latitude,
+      pickupLng: pickup.longitude,
       pickupAddress: _pickupAddress ??
           (args['pickup'] as String?) ??
           LocalizationService.translate('unknown', authProvider.language),
-      dropoffLat: _dropoffLatLng?.latitude ??
-          (args['dropoffLatLng'] as ll.LatLng?)?.latitude ??
-          0.0,
-      dropoffLng: _dropoffLatLng?.longitude ??
-          (args['dropoffLatLng'] as ll.LatLng?)?.longitude ??
-          0.0,
+      dropoffLat: dropoff.latitude,
+      dropoffLng: dropoff.longitude,
       dropoffAddress: _dropoffAddress ??
           (args['dropoff'] as String?) ??
           LocalizationService.translate('unknown', authProvider.language),
       region: _pickupRegion ?? (args['region'] as String?) ?? user.region,
       city: _pickupCity ?? (args['city'] as String?) ?? user.city,
-      fare: _calculatedFare > 0
-          ? _calculatedFare
-          : ((args['fare'] as num?)?.toDouble() ?? 0.0),
+      distanceMeters: _distance * 1000,
+      durationSeconds: _estimatedDurationSeconds,
       vehicleType: (args['vehicle'] as Vehicle?)?.name ?? "Car",
       riderImage: user.profileImageUrl,
       isGuestRide: _isGuestRide,
@@ -884,9 +899,9 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
 
     final pickupAddress = args?['pickup'] ?? "Current location";
     final rawPickupLatLng = args?['pickupLatLng'];
-    final pickupLatLng = (rawPickupLatLng is ll.LatLng && rawPickupLatLng.latitude.isFinite) 
-        ? rawPickupLatLng 
-        : const ll.LatLng(-3.37, 36.68);
+    final pickupLatLng = (rawPickupLatLng is ll.LatLng && rawPickupLatLng.latitude.isFinite)
+        ? rawPickupLatLng
+        : const ll.LatLng(0, 0);
     
     final currentCenter = _pickupLatLng ?? pickupLatLng;
     final safeCenter = (currentCenter.latitude.isFinite && currentCenter.longitude.isFinite)
@@ -894,8 +909,7 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         : const ll.LatLng(-3.37, 36.68);
 
     final vehicleName = (args?['vehicle'] as Vehicle?)?.name ?? "BODABODA";
-    final fare =
-        _calculatedFare > 0 ? _calculatedFare : (args?['fare'] ?? 3500.0);
+    final fare = _calculatedFare;
     final displayDropoff = _dropoffAddress ?? args?['dropoff'] ?? "Where to?.";
 
     debugPrint(
@@ -1063,9 +1077,7 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                 final dropoffAddress =
                     args?['dropoff'] as String? ?? "Destination";
                 final displayDropoff = _dropoffAddress ?? dropoffAddress;
-                final fare = _calculatedFare > 0
-                    ? _calculatedFare
-                    : ((args?['fare'] as num?)?.toDouble() ?? 0.0);
+                final fare = _calculatedFare;
 
                 if (_isRequesting) {
                   return _buildSearchingPanel(vehicleName,
@@ -1891,7 +1903,6 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         phone: auth.currentUser?.phoneNumber ?? '',
         amount: ride.fare > 0 ? ride.fare : _calculatedFare,
         rideId: ride.id,
-        userRole: 'rider',
       );
     }
 
