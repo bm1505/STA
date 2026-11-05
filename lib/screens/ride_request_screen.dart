@@ -950,7 +950,7 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
     final currentCenter = _pickupLatLng ?? pickupLatLng;
     final safeCenter = (currentCenter.latitude.isFinite && currentCenter.longitude.isFinite)
         ? currentCenter
-        : const ll.LatLng(-3.37, 36.68);
+        : const ll.LatLng(0, 0);
 
     final vehicleName = (args?['vehicle'] as Vehicle?)?.name ?? "BODABODA";
     final fare = _calculatedFare;
@@ -2884,7 +2884,7 @@ class AddressSearchDelegate extends SearchDelegate<Map<String, dynamic>?> {
     try {
       // Tunaboresha bias kuelekea Tanzania (Arusha/Dar)
       // Tunatumia Photon API ambayo ni rafiki kwa Autocomplete
-      final String url = 'https://photon.komoot.io/api/?q=${Uri.encodeComponent(text)}&limit=15&lat=-3.37&lon=36.68&location_bias_scale=0.5';
+      final String url = 'https://photon.komoot.io/api/?q=${Uri.encodeComponent(text)}&limit=15';
       
       final response = await http.get(
         Uri.parse(url),
