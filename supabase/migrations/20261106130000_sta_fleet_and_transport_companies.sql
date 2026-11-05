@@ -419,6 +419,66 @@ $$;
 revoke all on function public.sta_assign_driver_vehicle(uuid,uuid,uuid) from public;
 grant execute on function public.sta_assign_driver_vehicle(uuid,uuid,uuid) to authenticated;
 
+create or replace function public.sta_list_org_assignments(p_org_id uuid)
+returns table(
+  assignment_id uuid,
+  driver_id uuid,
+  driver_name text,
+  driver_phone text,
+  vehicle_id uuid,
+  vehicle_plate text,
+  assigned_at timestamptz,
+  is_online boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+begin
+  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher']) then
+    raise exception 'Fleet monitoring access required' using errcode = '42501';
+  end if;
+  return query
+  select a.id,a.driver_id,
+    coalesce(p.user_data->>'name',p.full_name,'Driver'),
+    p.phone_number,a.vehicle_id,v.registration_number,a.assigned_at,dp.is_online
+  from public.fleet_vehicle_assignments a
+  join public.fleet_vehicles v on v.id=a.vehicle_id
+  join public.driver_profiles dp on dp.user_id=a.driver_id
+  join public.profiles p on p.id=a.driver_id
+  where a.organization_id=p_org_id and a.status='active'
+  order by a.assigned_at desc;
+end;
+$;
+revoke all on function public.sta_list_org_assignments(uuid) from public;
+grant execute on function public.sta_list_org_assignments(uuid) to authenticated;
+
+create or replace function public.sta_unassign_driver_vehicle(p_assignment_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare v_assignment public.fleet_vehicle_assignments;
+begin
+  select * into v_assignment from public.fleet_vehicle_assignments
+  where id=p_assignment_id and status='active' for update;
+  if not found then raise exception 'Active assignment not found'; end if;
+  if not public.sta_is_org_member(v_assignment.organization_id,array['owner','manager','fleet_manager']) then
+    raise exception 'Fleet manager access required' using errcode = '42501';
+  end if;
+  update public.fleet_vehicle_assignments
+  set status='ended',unassigned_at=now()
+  where id=p_assignment_id;
+  update public.driver_profiles
+  set vehicle_id=null,updated_at=now()
+  where user_id=v_assignment.driver_id and vehicle_id=v_assignment.vehicle_id;
+end;
+$;
+revoke all on function public.sta_unassign_driver_vehicle(uuid) from public;
+grant execute on function public.sta_unassign_driver_vehicle(uuid) to authenticated;
+
 create or replace function public.sta_log_vehicle_fuel(
   p_org_id uuid,p_vehicle_id uuid,p_quantity_liters numeric,p_unit_price numeric,
   p_odometer_km numeric default null,p_fuel_station text default null
