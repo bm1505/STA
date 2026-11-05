@@ -172,6 +172,34 @@ class DatabaseService {
   Future<void> recordTrip(Map<String, dynamic> tripData) async {
     await _db.rpc('sta_record_trip', params: {'p_trip_data': tripData});
   }
+  Future<Map<String, bool>> getInfrastructureHealth() async {
+    var databaseConnected = false;
+    var aiConfigured = false;
+    var trafficConfigured = false;
+    try {
+      await _db.from('profiles').select('id').limit(1);
+      databaseConnected = true;
+    } catch (_) {}
+    try {
+      final response = await _db.functions.invoke('sta-ai', body: {'action': 'health'});
+      aiConfigured = response.status == 200 &&
+          response.data is Map && response.data['configured'] == true;
+    } catch (_) {}
+    try {
+      final response = await _db.functions.invoke('traffic-route', body: {'action': 'health'});
+      trafficConfigured = response.status == 200 &&
+          response.data is Map && response.data['configured'] == true;
+    } catch (_) {}
+    return {
+      'database': databaseConnected,
+      'ai': aiConfigured,
+      'traffic': trafficConfigured,
+      'push': false,
+      'payments': false,
+      'fleet': false,
+    };
+  }
+
   Future<Map<String, dynamic>> estimateFare({
     required String vehicleType,
     required double distanceMeters,
