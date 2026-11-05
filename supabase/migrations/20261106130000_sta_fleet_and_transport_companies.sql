@@ -170,7 +170,7 @@ create policy transport_branches_member_read on public.transport_branches
 drop policy if exists fleet_vehicles_member_read on public.fleet_vehicles;
 create policy fleet_vehicles_member_read on public.fleet_vehicles
   for select to authenticated using (
-    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer','finance'])
     or exists (
       select 1 from public.fleet_vehicle_assignments a
       where a.vehicle_id=fleet_vehicles.id and a.driver_id=auth.uid() and a.status='active'
@@ -180,7 +180,7 @@ drop policy if exists fleet_assignments_member_read on public.fleet_vehicle_assi
 create policy fleet_assignments_member_read on public.fleet_vehicle_assignments
   for select to authenticated using (
     driver_id=auth.uid()
-    or public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+    or public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer','finance'])
   );
 drop policy if exists fleet_fuel_member_read on public.fleet_fuel_logs;
 create policy fleet_fuel_member_read on public.fleet_fuel_logs
