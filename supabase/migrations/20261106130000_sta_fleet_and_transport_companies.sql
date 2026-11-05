@@ -514,6 +514,63 @@ $$;
 revoke all on function public.sta_create_transport_contract(uuid,text,text,date,date,numeric,jsonb) from public;
 grant execute on function public.sta_create_transport_contract(uuid,text,text,date,date,numeric,jsonb) to authenticated;
 
+-- Organization members can see telemetry only for drivers assigned to their own fleet.
+create policy driver_locations_org_member_select on public.driver_locations
+  for select to authenticated using (
+    exists (
+      select 1 from public.fleet_vehicle_assignments a
+      where a.driver_id = driver_locations.driver_id
+        and a.organization_id in (
+          select m.organization_id from public.organization_members m
+          where m.user_id = auth.uid() and m.status = 'active'
+            and m.role in ('owner','manager','fleet_manager','dispatcher')
+        )
+        and a.status = 'active'
+    )
+  );
+
+create or replace function public.sta_org_live_locations(p_org_id uuid)
+returns table(
+  driver_id uuid,
+  driver_name text,
+  vehicle_plate text,
+  latitude double precision,
+  longitude double precision,
+  heading double precision,
+  recorded_at timestamptz,
+  availability_status text,
+  active_ride_status text
+)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+begin
+  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher']) then
+    raise exception 'Fleet monitoring access required' using errcode = '42501';
+  end if;
+  return query
+  select a.driver_id,
+    coalesce(p.user_data->>'name',p.full_name,'Driver'),
+    v.registration_number,
+    dl.latitude,dl.longitude,dl.heading,dl.recorded_at,dp.availability_status,
+    (select r.status from public.ride_requests r
+      where r.driver_id=a.driver_id and r.status in ('accepted','driver_arrived','in_progress')
+      order by r.updated_at desc limit 1)
+  from public.fleet_vehicle_assignments a
+  join public.fleet_vehicles v on v.id=a.vehicle_id
+  join public.driver_profiles dp on dp.user_id=a.driver_id
+  join public.profiles p on p.id=a.driver_id
+  join public.driver_locations dl on dl.driver_id=a.driver_id
+  where a.organization_id=p_org_id and a.status='active'
+    and dp.is_online=true and dl.recorded_at > now()-interval '5 minutes'
+  order by dl.recorded_at desc;
+end;
+$;
+revoke all on function public.sta_org_live_locations(uuid) from public;
+grant execute on function public.sta_org_live_locations(uuid) to authenticated;
+
 create or replace function public.sta_owner_dashboard(p_org_id uuid)
 returns table(
   vehicle_count bigint,
