@@ -65,6 +65,10 @@ create unique index if not exists fleet_one_active_vehicle_per_driver
 create unique index if not exists fleet_one_active_driver_per_vehicle
   on public.fleet_vehicle_assignments(vehicle_id) where status = 'active';
 
+alter table public.fleet_vehicle_assignments
+  add column if not exists previous_vehicle_type text,
+  add column if not exists previous_vehicle_plate text;
+
 create table if not exists public.fleet_fuel_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.transport_organizations(id) on delete cascade,
@@ -415,7 +419,11 @@ language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
-declare v_assignment uuid; v_vehicle public.fleet_vehicles;
+declare
+  v_assignment uuid;
+  v_vehicle public.fleet_vehicles;
+  v_previous_vehicle_type text;
+  v_previous_vehicle_plate text;
 begin
   if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager']) then
     raise exception 'Fleet manager access required' using errcode = '42501';
@@ -436,8 +444,13 @@ begin
   if exists(select 1 from public.ride_requests where driver_id=p_driver_id and status in ('accepted','driver_arrived','in_progress')) then
     raise exception 'Driver must finish the active ride before vehicle assignment';
   end if;
-  insert into public.fleet_vehicle_assignments(organization_id,vehicle_id,driver_id,assigned_by)
-  values(p_org_id,p_vehicle_id,p_driver_id,auth.uid()) returning id into v_assignment;
+  select vehicle_type,vehicle_plate into v_previous_vehicle_type,v_previous_vehicle_plate
+  from public.driver_profiles where user_id=p_driver_id for update;
+  insert into public.fleet_vehicle_assignments(
+    organization_id,vehicle_id,driver_id,assigned_by,previous_vehicle_type,previous_vehicle_plate
+  ) values(
+    p_org_id,p_vehicle_id,p_driver_id,auth.uid(),v_previous_vehicle_type,v_previous_vehicle_plate
+  ) returning id into v_assignment;
   insert into public.organization_members(organization_id,user_id,role,status)
   values(p_org_id,p_driver_id,'driver','active')
   on conflict(organization_id,user_id) do update set status='active';
@@ -509,8 +522,14 @@ begin
   set status='ended',unassigned_at=now()
   where id=p_assignment_id;
   update public.driver_profiles
-  set vehicle_id=null,updated_at=now()
+  set vehicle_id=null,
+      vehicle_type=v_assignment.previous_vehicle_type,
+      vehicle_plate=v_assignment.previous_vehicle_plate,
+      is_online=false,
+      availability_status='offline',
+      updated_at=now()
   where user_id=v_assignment.driver_id and vehicle_id=v_assignment.vehicle_id;
+  delete from public.driver_locations where driver_id=v_assignment.driver_id;
   update public.organization_members
   set status='suspended'
   where organization_id=v_assignment.organization_id
