@@ -82,6 +82,24 @@ serve(async (req) => {
       return Response.json({ ...parsed, requiresHumanReview: true }, { headers: corsHeaders });
     }
 
+    if (action === "visual_landmark") {
+      const mimeType = body.mimeType;
+      const imageBase64 = body.imageBase64;
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType) ||
+          typeof imageBase64 !== "string" || imageBase64.length < 100 ||
+          imageBase64.length > 11_200_000) {
+        return Response.json({ error: "Invalid or oversized image" }, { status: 400, headers: corsHeaders });
+      }
+      const raw = await generate(
+        "Identify a specific recognizable landmark or building in Tanzania from this image. Do not guess. Return only the landmark name and city, or exactly null if the image is unclear or the place cannot be identified.",
+        { mimeType, data: imageBase64 },
+      );
+      const landmark = raw.replace(/^["'`]|["'`]$/g, "").trim();
+      return Response.json({
+        landmark: !landmark || landmark.toLowerCase() === "null" ? null : landmark.slice(0, 160),
+      }, { headers: corsHeaders });
+    }
+
     if (action === "destination_intent") {
       const text = typeof body.text === "string" ? body.text.trim().slice(0, 500) : "";
       if (!text) return Response.json({ error: "Voice text is required" }, { status: 400, headers: corsHeaders });
