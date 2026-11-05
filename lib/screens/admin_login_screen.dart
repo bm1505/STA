@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sta/utils/theme.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
@@ -182,37 +181,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         _tapCount++;
         if (_tapCount >= 5) {
           _tapCount = 0;
-          // MAGIC FIX: Create Admin Profile
-          try {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Inarekebisha Admin Profile...')),
-            );
-
-            // Lengo ni kuhakikisha huyo mtumiaji yupo kwenye 'staff' collection na role 'admin'
-            // Tutatumia register function au database direct ikiwa tunaweza
-            final scaffoldMessenger = ScaffoldMessenger.of(context);
-            await FirebaseFirestore.instance
-                .collection('staff')
-                .doc('admin_fix')
-                .set({
-              'email': 'admin@sta.co.tz',
-              'name': 'STA Admin',
-              'role': 'admin',
-              'phoneNumber': '0000000000',
-              'createdAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(
-                  content: Text(
-                      'Admin Profile imerekebishwa! Jaribu kuingia sasa.')),
-            );
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Hitilafu: $e')),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Admin accounts must be provisioned securely by an authorized STA administrator.'),
+            ),
+          );
         }
       },
       child: Container(
