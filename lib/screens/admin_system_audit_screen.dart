@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/theme.dart';
@@ -330,9 +329,9 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
       case 3: return _buildSecurity();
       case 4: return _buildHealth();
       case 5: return _buildRealTimeTable("trips", "Ride Audit Log");
-      case 6: return _buildRealTimeTable("transactions", "Financial Audit Log");
+      case 6: return _buildRealTimeTable("wallet_transactions", "Financial Audit Log");
       case 7: return _buildApiMonitoring();
-      case 8: return _buildRealTimeTable("it_tickets", "Communication & Support Audit");
+      case 8: return _buildRealTimeTable("chat_messages", "Chat & Support Audit");
       case 10: return _buildTopDriversReport();
       default: return _buildOverview();
     }
@@ -351,17 +350,17 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
         ),
         const SizedBox(height: 30),
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('drivers').orderBy('totalRides', descending: true).limit(10).snapshots(),
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: DatabaseService.instance.getTopDriversStream(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-              if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No driver data found", style: TextStyle(color: Colors.white24)));
+              if (snapshot.data!.isEmpty) return const Center(child: Text("No driver data found", style: TextStyle(color: Colors.white24)));
 
               return ListView.builder(
                 controller: _topDriversScrollController,
-                itemCount: snapshot.data!.docs.length,
+                itemCount: snapshot.data!.length,
                 itemBuilder: (context, i) {
-                  var data = snapshot.data!.docs[i].data() as Map<String, dynamic>;
+                  final data = snapshot.data![i];
                   return Container(
                     margin: const EdgeInsets.only(bottom: 15),
                     padding: const EdgeInsets.all(20),
@@ -470,20 +469,18 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
           ),
           const SizedBox(height: 40),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('transactions')
-                  .where('type', isEqualTo: 'commission_deduction')
-                  .orderBy('timestamp', descending: true)
-                  .limit(10)
-                  .snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: DatabaseService.instance.getCommissionTransactionsStream(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 
                 List<FlSpot> spots = [];
-                var docs = snapshot.data!.docs.reversed.toList();
-                for (int i = 0; i < docs.length; i++) {
-                  double amount = (docs[i]['amount'] as num).toDouble().abs();
+                final docs = [...snapshot.data!]
+                  ..sort((a, b) => (a['created_at']?.toString() ?? '')
+                      .compareTo(b['created_at']?.toString() ?? ''));
+                final recent = docs.length > 10 ? docs.sublist(docs.length - 10) : docs;
+                for (int i = 0; i < recent.length; i++) {
+                  final amount = ((recent[i]['amount'] as num?)?.toDouble() ?? 0).abs();
                   spots.add(FlSpot(i.toDouble(), amount));
                 }
 
@@ -525,10 +522,10 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
   }
 
   Widget _statCard(String title, String collection, IconData icon, Color color) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection(collection).snapshots(),
+    return StreamBuilder<int>(
+      stream: DatabaseService.instance.getAdminCountStream(collection),
       builder: (context, snapshot) {
-        String val = snapshot.hasData ? snapshot.data!.docs.length.toString() : "...";
+        String val = snapshot.hasData ? snapshot.data!.toString() : "...";
         return Container(
           padding: const EdgeInsets.all(18), // Imepunguzwa kutoka 25
           decoration: BoxDecoration(
@@ -579,10 +576,14 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
               borderRadius: BorderRadius.circular(25),
               border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
             ),
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('trips').orderBy('createdAt', descending: true).limit(20).snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: DatabaseService.instance.getAdminTripsStream(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final trips = [...snapshot.data!]
+                  ..sort((a, b) => (b['timestamp']?.toString() ?? '')
+                      .compareTo(a['timestamp']?.toString() ?? ''));
+                final recent = trips.take(20).toList();
                 return Scrollbar(
                   controller: _scrollController,
                   thumbVisibility: true,
@@ -590,14 +591,14 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
                     controller: _scrollController,
                     padding: const EdgeInsets.all(15),
                     shrinkWrap: isCompact,
-                    itemCount: snapshot.data!.docs.length,
+                    itemCount: recent.length,
                     itemBuilder: (context, i) {
-                      var data = snapshot.data!.docs[i].data() as Map<String, dynamic>;
+                      final data = recent[i];
                       return _activityItem(
-                        data['createdAt'] ?? 'N/A',
+                        data['timestamp'] ?? 'N/A',
                         "RIDE",
-                        "New Ride Request: ${data['riderName'] ?? 'Unknown'}",
-                        data['status'] ?? 'pending',
+                        "Completed ride: ${data['riderName'] ?? 'Unknown'}",
+                        data['status'] ?? 'completed',
                         Colors.blue,
                       );
                     },
@@ -613,7 +614,8 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
 
   Widget _activityItem(dynamic time, String type, String msg, String status, Color color) {
     String timeStr = "Now";
-    if (time is Timestamp) timeStr = DateFormat('HH:mm:ss').format(time.toDate());
+    final parsedTime = DateTime.tryParse(time?.toString() ?? '');
+    if (parsedTime != null) timeStr = DateFormat('HH:mm:ss').format(parsedTime.toLocal());
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -677,14 +679,14 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
       ),
-      child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection(collection).limit(50).snapshots(),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: DatabaseService.instance.getAdminTableStream(collection),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No Data Available", style: TextStyle(color: Colors.white24)));
+          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("No Data Available", style: TextStyle(color: Colors.white24)));
 
-          final docs = snapshot.data!.docs;
-          final columns = docs.first.data() as Map<String, dynamic>;
+          final docs = snapshot.data!;
+          final columns = docs.first;
           final colNames = columns.keys.toList();
 
           return ClipRRect(
@@ -707,19 +709,23 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
                       const DataColumn(label: Text("ACTIONS", style: TextStyle(color: AppTheme.adminPrimary, fontWeight: FontWeight.w900, fontSize: 10))),
                       ...colNames.map((c) => DataColumn(label: Text(c.toUpperCase(), style: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w900, fontSize: 10)))),
                     ],
-                    rows: docs.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
+                    rows: docs.map((data) {
+                      final recordId = data['id']?.toString() ?? data['key']?.toString();
+                      final canDelete = ['notification_broadcasts', 'app_settings'].contains(collection) && recordId != null;
                       return DataRow(
                         cells: [
                           DataCell(Row(
                             children: [
                               IconButton(icon: const Icon(Icons.edit_note_rounded, color: AppTheme.adminPrimary, size: 18), onPressed: () {}),
-                              IconButton(icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 18), onPressed: () async {
-                                await FirebaseFirestore.instance.collection(collection).doc(doc.id).delete();
-                              }),
+                              IconButton(
+                                icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 18),
+                                onPressed: !canDelete ? null : () async {
+                                  await DatabaseService.instance.deleteRecord(collection, recordId);
+                                },
+                              ),
                             ],
                           )),
-                          ...colNames.map((c) => DataCell(Text(data[c]?.toString() ?? '-', style: const TextStyle(color: Colors.white70, fontSize: 12)))),
+                          ...colNames.map((column) => DataCell(Text(data[column]?.toString() ?? '-', style: const TextStyle(color: Colors.white70, fontSize: 12)))),
                         ],
                       );
                     }).toList(),
