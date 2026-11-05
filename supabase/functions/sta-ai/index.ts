@@ -54,6 +54,9 @@ serve(async (req) => {
 
     const body = await req.json();
     const action = body?.action;
+    if (action === "health") {
+      return Response.json({ configured: Boolean(Deno.env.get("GEMINI_API_KEY")) }, { headers: corsHeaders });
+    }
     if (action === "document_review") {
       const { data: profile, error: profileError } = await supabase
         .from("profiles").select("role,is_active").eq("id", authData.user.id).maybeSingle();
