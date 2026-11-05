@@ -869,12 +869,16 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
     final dropoff = _dropoffLatLng ?? (args?['dropoffLatLng'] as ll.LatLng?);
     if (args == null || pickup == null || dropoff == null ||
         !pickup.latitude.isFinite || !pickup.longitude.isFinite ||
-        !dropoff.latitude.isFinite || !dropoff.longitude.isFinite ||
-        _calculatedFare <= 0 || _distance <= 0 || _estimatedDurationSeconds <= 0) {
+        !dropoff.latitude.isFinite || !dropoff.longitude.isFinite) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(LocalizationService.translate(
-                'select_destination', authProvider.language))),
+        SnackBar(content: Text(LocalizationService.translate(
+          'select_destination', authProvider.language))),
+      );
+      return;
+    }
+    if (_calculatedFare <= 0 || _distance <= 0 || _estimatedDurationSeconds <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A valid route and fare estimate are required before requesting a ride.')),
       );
       return;
     }
@@ -2266,7 +2270,7 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                             .toUpperCase()),
                     _buildInfoColumn(
                         LocalizationService.translate('price_caps', lang),
-                        "${NumberFormat('#,###').format(fare)} Tsh",
+                        fare > 0 ? "${NumberFormat('#,###').format(fare)} Tsh" : "Fare unavailable",
                         isBold: true),
                     _buildInfoColumn(
                         LocalizationService.translate('distance_caps', lang),
