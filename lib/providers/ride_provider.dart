@@ -99,7 +99,9 @@ class RideProvider extends ChangeNotifier {
         'p_distance_meters': distanceMeters,
         'p_duration_seconds': durationSeconds,
         'p_ride_data': {
-          'riderImage': riderImage, 'region': region, 'city': city,
+          'riderImage': riderImage,
+          'region': region == null || region.trim().isEmpty ? null : region.trim(),
+          'city': city == null || city.trim().isEmpty ? null : city.trim(),
           'femaleOnly': femaleOnly, 'pickupImage': pickupImage,
           'isGuestRide': isGuestRide, 'guestName': guestName, 'guestPhone': guestPhone,
         },
