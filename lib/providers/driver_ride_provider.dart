@@ -285,17 +285,26 @@ class DriverRideProvider extends ChangeNotifier {
 
   Future<void> completeRide({required double fare, required double distance, required double duration}) async {
     if (_currentRideData == null) return;
-    await _db.rpc('sta_set_ride_status', params: {
-      'p_ride_id': _currentRideData!['id'], 'p_status': 'completed',
-      'p_fare': fare, 'p_distance_meters': distance,
-      'p_duration_seconds': duration.round(), 'p_payment_status': 'pending',
-    });
-    _status = DriverRideStatus.waitingForPayment;
-    notifyListeners();
+    try {
+      await _db.rpc('sta_set_ride_status', params: {
+        'p_ride_id': _currentRideData!['id'],
+        'p_status': 'completed',
+        'p_fare': fare,
+        'p_distance_meters': distance,
+        'p_duration_seconds': duration.round(),
+        'p_payment_status': 'pending',
+      });
+      _status = DriverRideStatus.waitingForPayment;
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Ride completion failed: $error');
+      _error = error.toString();
+      notifyListeners();
+    }
   }
 
   Future<void> confirmPaymentReceived() async {
-    if (_currentRideData == null || _user == null) { _resetRide(); return; }
+    if (_currentRideData == null || _user == null) return;
     try {
       await _db.rpc('sta_set_ride_status', params: {
         'p_ride_id': _currentRideData!['id'],
@@ -303,8 +312,12 @@ class DriverRideProvider extends ChangeNotifier {
         'p_payment_status': 'paid',
       });
       SoundService.playPaymentSuccess();
-    } catch (e) { debugPrint('Payment confirmation failed: $e'); }
-    finally { _resetRide(); }
+      _resetRide();
+    } catch (error) {
+      debugPrint('Payment confirmation failed: $error');
+      _error = error.toString();
+      notifyListeners();
+    }
   }
 
   Future<void> cancelRideByDriver(String reason) async {
@@ -359,7 +372,7 @@ class DriverRideProvider extends ChangeNotifier {
       });
     }
     _currentRideData = null; _tripTimer?.cancel(); _chatSubscription?.cancel();
-    _currentRideSubscription?.cancel(); _tripDistance = 0; _tripSeconds = 0;
+    _currentRideSubscription?.cancel(); _tripDistance = 0; _lastTripLocation = null; _tripSeconds = 0;
     notifyListeners();
   }
 
