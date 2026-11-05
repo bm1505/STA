@@ -2885,7 +2885,7 @@ class AddressSearchDelegate extends SearchDelegate<Map<String, dynamic>?> {
   Future<List<dynamic>> _fetchSuggestions(String text) async {
     if (text.isEmpty) return [];
     try {
-      // Tunaboresha bias kuelekea Tanzania (Arusha/Dar)
+      // Search without assuming the passenger is in a fixed Tanzanian city.
       // Tunatumia Photon API ambayo ni rafiki kwa Autocomplete
       final String url = 'https://photon.komoot.io/api/?q=${Uri.encodeComponent(text)}&limit=15';
       
