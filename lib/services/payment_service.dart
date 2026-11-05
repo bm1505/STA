@@ -21,8 +21,9 @@ class PaymentService {
         'phone_number': phone,
         'amount': amount,
         'status': 'pending',
-        'ride_id': rideId,
-        'type': rideId == null ? 'topup' : 'ride_payment',
+        'ride_request_id': rideId,
+        'provider': 'mpesa',
+        'provider_payload': {'type': rideId == null ? 'topup' : 'ride_payment', 'user_role': userRole},
         'user_role': userRole,
       }).select('id').single();
 
