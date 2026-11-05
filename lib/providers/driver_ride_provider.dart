@@ -195,7 +195,7 @@ class DriverRideProvider extends ChangeNotifier {
     if (newStatus == DriverRideStatus.arrived) { value = 'driver_arrived'; SoundService.playDriverArrived(); }
     if (newStatus == DriverRideStatus.tripInProgress) { value = 'in_progress'; _startTripCounters(); SoundService.playTripStarted(); }
     try {
-      await _db.from('ride_requests').update({'status': value}).eq('id', _currentRideData!['id'].toString());
+      await _db.rpc('sta_set_ride_status', params: {'p_ride_id': _currentRideData!['id'], 'p_status': value});
     } catch (e) { debugPrint('Ride status update failed: $e'); }
     notifyListeners();
   }
@@ -210,11 +210,11 @@ class DriverRideProvider extends ChangeNotifier {
 
   Future<void> completeRide({required double fare, required double distance, required double duration}) async {
     if (_currentRideData == null) return;
-    await _db.from('ride_requests').update({
-      'status': 'completed', 'final_fare': fare,
-      'distance_meters': distance, 'duration_seconds': duration.round(),
-      'payment_status': 'pending', 'completed_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', _currentRideData!['id'].toString());
+    await _db.rpc('sta_set_ride_status', params: {
+      'p_ride_id': _currentRideData!['id'], 'p_status': 'completed',
+      'p_fare': fare, 'p_distance_meters': distance,
+      'p_duration_seconds': duration.round(), 'p_payment_status': 'pending',
+    });
     _status = DriverRideStatus.waitingForPayment;
     notifyListeners();
   }
@@ -229,9 +229,10 @@ class DriverRideProvider extends ChangeNotifier {
       trip['fare'] = _currentRideData!['final_fare'];
       trip['paymentStatus'] = 'paid';
       trip['status'] = 'paid';
-      await _db.from('ride_requests').update({
-        'payment_status': 'paid', 'status': 'completed',
-      }).eq('id', _currentRideData!['id'].toString());
+      await _db.rpc('sta_set_ride_status', params: {
+        'p_ride_id': _currentRideData!['id'], 'p_status': 'completed',
+        'p_payment_status': 'paid',
+      });
       await DatabaseService.instance.recordTrip(trip);
       await DatabaseService.instance.incrementDriverRides(_user!.id);
     } catch (e) { debugPrint('Payment confirmation failed: $e'); }
@@ -240,10 +241,10 @@ class DriverRideProvider extends ChangeNotifier {
 
   Future<void> cancelRideByDriver(String reason) async {
     if (_currentRideData == null) return;
-    await _db.from('ride_requests').update({
-      'status': 'cancelled', 'cancelled_at': DateTime.now().toUtc().toIso8601String(),
-      'ride_data': {...Map<String, dynamic>.from(_currentRideData!['ride_data'] ?? {}), 'cancellationReason': reason, 'cancelledBy': 'driver'},
-    }).eq('id', _currentRideData!['id'].toString());
+    await _db.rpc('sta_set_ride_status', params: {
+      'p_ride_id': _currentRideData!['id'], 'p_status': 'cancelled',
+      'p_cancellation_reason': reason,
+    });
     _resetRide();
   }
 
@@ -308,6 +309,7 @@ class DriverRideProvider extends ChangeNotifier {
     _db.from('driver_profiles').upsert({
       'user_id': id, 'is_online': true, 'availability_status': status,
       'vehicle_type': Vehicle.getStandardizedType(vehicleType),
+      'verification_status': _user?.isVerified == true ? 'verified' : 'pending',
       'region': region, 'city': city,
     }).then((_) {});
     if (location != null) {
