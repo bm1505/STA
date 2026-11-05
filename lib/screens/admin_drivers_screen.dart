@@ -197,13 +197,16 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
   }
 
   Widget _buildRatingCell(dynamic rating) {
-    double r = (rating as num?)?.toDouble() ?? 5.0;
+    final value = (rating as num?)?.toDouble();
+    if (value == null || value <= 0) {
+      return const Text('No rating', style: TextStyle(color: Colors.white38, fontSize: 11));
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.star, color: Colors.amber, size: 14),
         const SizedBox(width: 5),
-        Text(r.toStringAsFixed(1),
+        Text(value.toStringAsFixed(1),
             style: const TextStyle(color: Colors.white70)),
       ],
     );
