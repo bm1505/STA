@@ -496,6 +496,7 @@ class DatabaseService {
       'chat_messages': ['id'],
       'sos_alerts': ['id'],
       'ride_ratings': ['id'],
+      'ride_ratings': ['id'],
     };
     final keys = primaryKeys[tableName];
     if (keys == null) throw ArgumentError('Table is not available in the STA admin explorer');
@@ -590,7 +591,7 @@ class DatabaseService {
     'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
     'trips', 'wallets', 'wallet_transactions', 'payments',
     'withdrawal_requests', 'notification_broadcasts', 'app_settings',
-    'chat_messages', 'sos_alerts',
+    'chat_messages', 'sos_alerts', 'ride_ratings',
   ];
 
   Future<List<Map<String, dynamic>>> getTableData(String tableName) async {
@@ -598,7 +599,7 @@ class DatabaseService {
       'profiles', 'driver_profiles', 'driver_locations', 'ride_requests',
       'trips', 'wallets', 'wallet_transactions', 'payments',
       'withdrawal_requests', 'notification_broadcasts', 'app_settings',
-      'chat_messages', 'sos_alerts',
+      'chat_messages', 'sos_alerts', 'ride_ratings',
     };
     if (!allowed.contains(tableName)) throw ArgumentError('Unknown table');
     final rows = await _db.from(tableName).select();
@@ -618,7 +619,11 @@ class DatabaseService {
   Future<void> insertOrUpdateRecord(String table, String id, Map<String, dynamic> data) async {
     const allowed = {'app_settings'};
     if (!allowed.contains(table)) throw ArgumentError('Operation not allowed');
-    await _db.from(table).upsert({...data, 'id': id});
+    if (table == 'app_settings') {
+      await _db.from(table).upsert({...data, 'key': id});
+    } else {
+      await _db.from(table).upsert({...data, 'id': id});
+    }
   }
 
   Future<void> updateDriverVerification(String id, bool verified) async {
