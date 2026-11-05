@@ -385,6 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildCircleIcon(
                     Icons.menu, () => _scaffoldKey.currentState?.openDrawer()),
+                _buildCircleIcon(Icons.notifications_none,
+                    () => Navigator.pushNamed(context, '/notifications')),
                 _buildCircleIcon(Icons.person,
                     () => Navigator.pushNamed(context, '/profile')),
               ],
@@ -1071,6 +1073,10 @@ class _HomeScreenState extends State<HomeScreen> {
               () => Navigator.pushNamed(context, '/wallet')),
           _drawerItem(Icons.person, "Profile",
               () => Navigator.pushNamed(context, '/profile')),
+          _drawerItem(Icons.notifications_none, "Notifications",
+              () => Navigator.pushNamed(context, '/notifications')),
+          _drawerItem(Icons.directions_bus, "Fleet & Transport",
+              () => Navigator.pushNamed(context, '/fleet')),
           const Divider(color: Colors.black, thickness: 2),
           _drawerItem(Icons.logout, "Logout", () async {
             final auth = Provider.of<AuthProvider>(context, listen: false);
