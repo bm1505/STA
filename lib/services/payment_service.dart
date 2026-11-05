@@ -16,20 +16,16 @@ class PaymentService {
       if (user == null) throw Exception('User not logged in');
       if (amount <= 0) throw Exception('Invalid payment amount');
 
-      final row = await _db.from('payments').insert({
-        'user_id': user.id,
-        'phone_number': phone,
-        'amount': amount,
-        'status': 'pending',
-        'ride_request_id': rideId,
-        'provider': 'mpesa',
-        'provider_payload': {'type': rideId == null ? 'topup' : 'ride_payment', 'user_role': userRole},
-        'user_role': userRole,
-      }).select('id').single();
+      final paymentId = await _db.rpc('sta_create_payment_request', params: {
+        'p_phone_number': phone.trim(),
+        'p_amount': amount,
+        'p_ride_id': rideId,
+        'p_payment_type': rideId == null ? 'topup' : 'ride_payment',
+      });
 
       return {
         'success': true,
-        'paymentId': row['id'].toString(),
+        'paymentId': paymentId.toString(),
         'message': 'Payment request created. Awaiting secure payment processing.',
       };
     } catch (e) {
