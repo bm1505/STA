@@ -373,7 +373,7 @@ class DatabaseService {
         final ids = sorted.take(10).map((r) => r['user_id'].toString()).toList();
         if (ids.isEmpty) return <Map<String, dynamic>>[];
         final profiles = await _db.from('profiles')
-            .select('id,user_data,full_name').inFilter('id', ids);
+            .select('id,user_data,full_name,email').inFilter('id', ids);
         final byId = {for (final p in profiles) p['id'].toString(): p};
         return sorted.take(10).map((driver) {
           final profile = byId[driver['user_id'].toString()];
@@ -384,6 +384,8 @@ class DatabaseService {
             ...driver,
             'id': driver['user_id'],
             'name': data['name'] ?? profile?['full_name'] ?? 'Driver',
+            'email': profile?['email'] ?? data['email'] ?? '',
+            'rating': data['rating'] ?? 0,
             'totalRides': driver['total_rides'] ?? 0,
           };
         }).toList();
