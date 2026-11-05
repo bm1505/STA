@@ -22,6 +22,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
   List<Map<String, dynamic>> _contracts = [];
   List<Map<String, dynamic>> _members = [];
   List<Map<String, dynamic>> _liveDrivers = [];
+  List<Map<String, dynamic>> _assignments = [];
   StreamSubscription<List<Map<String, dynamic>>>? _locationSubscription;
   Map<String, dynamic> _metrics = {};
   String? _organizationId;
@@ -72,6 +73,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _db.from('transport_contracts').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.rpc('sta_list_org_members', params: {'p_org_id': id}),
         _db.rpc('sta_org_live_locations', params: {'p_org_id': id}),
+        _db.rpc('sta_list_org_assignments', params: {'p_org_id': id}),
       ]);
       final metricRows = results[0] as List;
       if (!mounted) return;
@@ -84,6 +86,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _contracts = (results[5] as List).map((r) => Map<String, dynamic>.from(r)).toList();
         _members = (results[6] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
         _liveDrivers = (results[7] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
+        _assignments = (results[8] as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
         _busy = false;
       });
       await _locationSubscription?.cancel();
@@ -272,6 +275,22 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
       } catch (error) { _showMessage('Could not add branch: $error'); }
     }
     name.dispose(); region.dispose(); city.dispose(); address.dispose();
+  }
+
+  Map<String, dynamic>? _assignmentForVehicle(String vehicleId) {
+    for (final assignment in _assignments) {
+      if (assignment['vehicle_id']?.toString() == vehicleId) return assignment;
+    }
+    return null;
+  }
+
+  Future<void> _unassignDriver(String assignmentId) async {
+    try {
+      await _db.rpc('sta_unassign_driver_vehicle', params: {'p_assignment_id': assignmentId});
+      await _loadOrganizationData();
+    } catch (error) {
+      _showMessage('Could not unassign driver: $error');
+    }
   }
 
   Future<void> _assignDriver(String vehicleId) async {
@@ -665,26 +684,35 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                   if (_vehicles.isEmpty)
                     const Text('No vehicles have been registered.', style: TextStyle(color: Colors.white54))
                   else
-                    ..._vehicles.map((vehicle) => Card(
-                      color: const Color(0xFF1D2B36),
-                      child: ListTile(
-                        leading: const Icon(Icons.directions_car, color: Color(0xFFFFD166)),
-                        title: Text(vehicle['registration_number']?.toString() ?? 'Vehicle',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                        subtitle: Text([
-                          vehicle['vehicle_type']?.toString() ?? '',
-                          [vehicle['make'], vehicle['model']].where((v) => v != null && v.toString().isNotEmpty).join(' '),
-                          'Status: ${vehicle['status']}',
-                          if (vehicle['current_odometer_km'] != null) 'Odometer: ${vehicle['current_odometer_km']} km',
-                        ].where((v) => v.isNotEmpty).join(' · '),
-                          style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                        trailing: IconButton(
-                          tooltip: 'Assign driver',
-                          onPressed: () => _assignDriver(vehicle['id'].toString()),
-                          icon: const Icon(Icons.person_add_alt_1, color: Color(0xFFFFD166)),
+                    ..._vehicles.map((vehicle) {
+                      final assignment = _assignmentForVehicle(vehicle['id'].toString());
+                      return Card(
+                        color: const Color(0xFF1D2B36),
+                        child: ListTile(
+                          leading: const Icon(Icons.directions_car, color: Color(0xFFFFD166)),
+                          title: Text(vehicle['registration_number']?.toString() ?? 'Vehicle',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          subtitle: Text([
+                            vehicle['vehicle_type']?.toString() ?? '',
+                            [vehicle['make'], vehicle['model']].where((v) => v != null && v.toString().isNotEmpty).join(' '),
+                            'Status: ${vehicle['status']}',
+                            if (vehicle['current_odometer_km'] != null) 'Odometer: ${vehicle['current_odometer_km']} km',
+                            if (assignment != null) 'Driver: ${assignment['driver_name']}',
+                          ].where((v) => v.isNotEmpty).join(' · '),
+                            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                          trailing: IconButton(
+                            tooltip: assignment == null ? 'Assign driver' : 'Unassign driver',
+                            onPressed: assignment == null
+                                ? () => _assignDriver(vehicle['id'].toString())
+                                : () => _unassignDriver(assignment['assignment_id'].toString()),
+                            icon: Icon(
+                              assignment == null ? Icons.person_add_alt_1 : Icons.person_remove_alt_1,
+                              color: const Color(0xFFFFD166),
+                            ),
+                          ),
                         ),
-                      ),
-                    )),
+                      );
+                    }),
                   _sectionTitle('Live assigned drivers', null, ''),
                   if (_liveDrivers.isEmpty)
                     const Text('No assigned driver has a recent live location.', style: TextStyle(color: Colors.white54))
