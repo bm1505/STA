@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'barakamahega05@gmail.com', // Badilisha na email yako
-        pass: 'yvxt qfzx jvpw rwyx' // Tumia App Password ya Google hapa
+        pass: process.env.SMTP_PASSWORD
     }
 });
 
@@ -98,10 +98,10 @@ exports.verifyOtp = functions.https.onCall(async (data, context) => {
 // Configuration for M-Pesa (Sandbox)
 // In production, these should be moved to environment variables (functions.config())
 const MPESA_CONFIG = {
-    consumerKey: 'BEWgL31Rs1V5fYd13A0J2qK2JpTMHX4UAGbDR06o1DRpvLEE',
-    consumerSecret: 'v6gxCQZLn08HCn8whH0WpgOw4ozFcqAioyaMdAGbA2xaCnJO8oKKGyOrLUVZuwPI',
-    shortCode: '174379',
-    passkey: 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919',
+    consumerKey: process.env.MPESA_CONSUMER_KEY,
+    consumerSecret: process.env.MPESA_CONSUMER_SECRET,
+    shortCode: process.env.MPESA_SHORT_CODE,
+    passkey: process.env.MPESA_PASSKEY,
     region: 'us-west4' // Optimized for Safaricom latency
 };
 
