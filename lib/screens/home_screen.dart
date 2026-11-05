@@ -434,8 +434,8 @@ class _HomeScreenState extends State<HomeScreen> {
       options: MapOptions(
         initialCenter: (_currentLatLng != null && _currentLatLng!.latitude.isFinite)
             ? _currentLatLng!
-            : const LatLng(-6.7924, 39.2083),
-        initialZoom: 15,
+            : const LatLng(-6.3690, 34.8888),
+        initialZoom: _currentLatLng != null ? 15 : 6.5,
         maxZoom: 22,
         onTap: (tap, latLng) => _handleMapTap(latLng),
         onMapReady: () {
@@ -451,24 +451,20 @@ class _HomeScreenState extends State<HomeScreen> {
               debugPrint("Error moving map in onMapReady: $e");
             }
           }
-          rideProvider.findNearbyDrivers(
-              lat: (_currentLatLng != null && _currentLatLng!.latitude.isFinite)
-                  ? _currentLatLng!.latitude
-                  : -6.7924,
-              lng: (_currentLatLng != null && _currentLatLng!.longitude.isFinite)
-                  ? _currentLatLng!.longitude
-                  : 39.2083,
-              vehicleType: _selectedVehicle?.name ?? 'Car',
-              region: _pickupRegion);
+
         },
       ),
       children: [
-        // Google Hybrid Layer (Satellite + Streets + Labels) - Exact Google Look
         TileLayer(
-          urlTemplate: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.sta.ride',
-          maxNativeZoom: 20,
-          maxZoom: 22,
+          maxNativeZoom: 19,
+          maxZoom: 20,
+        ),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution('© OpenStreetMap contributors'),
+          ],
         ),
         if (_routeInfo != null)
           PolylineLayer(
