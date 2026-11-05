@@ -38,7 +38,7 @@ No credentials belong in Flutter or in source control.
 - **Resend:** Supabase Auth must be configured to use Resend SMTP in the Supabase Dashboard. No credentials are in the repository. The Resend direct transactional mail Edge Function was not added in this change.
 - **SwalaSMS delivery webhooks and retries:** sending is implemented, but signed webhook verification and status polling remain disabled until the provider's exact signing headers and status API are verified. The current ledger records acceptance, not final handset delivery.
 - **Supabase Storage:** new license, insurance and national-ID uploads store `pg://<object-path>` references. `PostgresImage` resolves them through 5-minute Supabase signed URLs. Migration `20261106152000_sta_private_driver_documents.sql` converts matching legacy public URLs, makes `driver-documents` private, and adds owner/active-admin access policies plus restrictive guards. Existing non-matching legacy URLs are intentionally not rewritten; inspect them before applying the migration.
-- **Firebase removal:** `pubspec.yaml` and `pubspec.lock` contain no Firebase packages; Android Gradle/manifest and iOS project configuration inspected in this pass contain no Firebase plugin/config references; the four Flutter entry points contain no Firebase initialization; obsolete `fcmToken` model field was removed. The code-search scan found no Firebase imports or initialization matches. Re-run a full local text scan before release to catch any generated or unindexed file.
+- **Firebase removal:** `pubspec.yaml` and `pubspec.lock` contain no Firebase packages; Android Gradle/manifest and iOS project configuration inspected in this pass contain no Firebase plugin/config references; the four Flutter entry points contain no Firebase initialization; obsolete `fcmToken` model field was removed and migration `20261106153000_sta_remove_legacy_fcm_tokens.sql` clears the stale token from profile JSON. The code-search scan found no Firebase imports or initialization matches. Re-run a full local text scan before release to catch any generated or unindexed file.
 
 ## Required Supabase Function secrets
 
@@ -51,7 +51,7 @@ The standard Supabase Function secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and 
 
 ## Deployment and verification
 
-1. Review and apply the provider delivery, AzamPay request, and private driver-document SQL migrations on a staging Supabase project. Confirm legacy document references and Storage policies before applying the private-bucket migration.
+1. Review and apply the provider delivery, AzamPay request, private driver-document, and legacy FCM-token cleanup SQL migrations on a staging Supabase project. Confirm legacy document references and Storage policies before applying the private-bucket migration.
 2. Set SwalaSMS Function secrets in Supabase.
 3. Deploy `swalasms-send` with JWT verification enabled.
 4. Test with an approved internal recipient and verify the SwalaSMS portal and `provider_delivery_jobs`.
