@@ -15,7 +15,6 @@ begin
      )
      and (
        new.verification_status is distinct from old.verification_status
-       or new.total_rides is distinct from old.total_rides
      ) then
     raise exception 'Driver verification and ride totals are managed by STA'
       using errcode = '42501';
