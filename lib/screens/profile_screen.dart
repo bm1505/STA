@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
@@ -174,13 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'profileImageUrl': finalUrl,
         };
 
-        await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.id)
-            .update({
-          'pendingUpdates': updates,
-          'profileEditStatus': 'submitted',
-        });
+        await DatabaseService.instance.submitDriverProfileEdit(user.id, updates);
 
         if (!mounted) return;
         setState(() => _isEditing = false);
@@ -335,10 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _requestProfileEdit() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    await FirebaseFirestore.instance
-        .collection('drivers')
-        .doc(auth.currentUser!.id)
-        .update({'profileEditStatus': 'requested'});
+    await DatabaseService.instance.requestDriverProfileEdit(auth.currentUser!.id);
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
