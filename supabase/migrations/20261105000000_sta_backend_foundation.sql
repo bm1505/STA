@@ -109,6 +109,13 @@ create table if not exists public.ride_requests (
   final_fare numeric(14,2) check (final_fare is null or final_fare >= 0),
   currency text not null default 'TZS',
   active_call jsonb,
+  ride_data jsonb not null default '{}'::jsonb,
+  driver_latitude double precision,
+  driver_longitude double precision,
+  driver_heading double precision,
+  distance_meters numeric(14,2),
+  duration_seconds integer,
+  payment_status text,
   requested_at timestamptz not null default now(),
   accepted_at timestamptz,
   completed_at timestamptz,
@@ -306,3 +313,126 @@ create policy "notification_broadcasts_admin_select"
       where p.id = auth.uid() and p.role = 'admin'
     )
   );
+
+
+-- Supporting operational tables used by the STA mobile clients.
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  chat_id text not null,
+  sender_id uuid not null references public.profiles(id),
+  receiver_id uuid not null references public.profiles(id),
+  sender_name text not null default '',
+  message text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists chat_messages_chat_created_idx
+  on public.chat_messages (chat_id, created_at);
+
+create table if not exists public.sos_alerts (
+  id uuid primary key default gen_random_uuid(),
+  ride_id uuid references public.ride_requests(id),
+  user_id uuid not null references public.profiles(id),
+  role text not null,
+  latitude double precision not null,
+  longitude double precision not null,
+  status text not null default 'active',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.ride_ratings (
+  id uuid primary key default gen_random_uuid(),
+  ride_id uuid not null references public.ride_requests(id),
+  target_user_id uuid not null references public.profiles(id),
+  driver_id uuid references public.profiles(id),
+  from_role text not null,
+  rider_name text,
+  rating integer not null check (rating between 1 and 5),
+  comment text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.withdrawal_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id),
+  amount numeric(14,2) not null check (amount > 0),
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'completed', 'rejected', 'failed')),
+  phone_number text,
+  created_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+
+alter table public.chat_messages enable row level security;
+alter table public.sos_alerts enable row level security;
+alter table public.ride_ratings enable row level security;
+alter table public.app_settings enable row level security;
+alter table public.withdrawal_requests enable row level security;
+
+create policy "chat_messages_participant_access" on public.chat_messages
+  for all to authenticated
+  using (sender_id = auth.uid() or receiver_id = auth.uid())
+  with check (sender_id = auth.uid());
+create policy "sos_alerts_insert_owner" on public.sos_alerts
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "sos_alerts_select_owner" on public.sos_alerts
+  for select to authenticated using (user_id = auth.uid());
+create policy "ride_ratings_insert_participant" on public.ride_ratings
+  for insert to authenticated with check (
+    exists (select 1 from public.ride_requests r
+      where r.id = ride_id and (r.rider_id = auth.uid() or r.driver_id = auth.uid()))
+  );
+create policy "ride_ratings_select_participant" on public.ride_ratings
+  for select to authenticated using (
+    exists (select 1 from public.ride_requests r
+      where r.id = ride_id and (r.rider_id = auth.uid() or r.driver_id = auth.uid()))
+  );
+create policy "app_settings_read_authenticated" on public.app_settings
+  for select to authenticated using (true);
+create policy "app_settings_admin_write" on public.app_settings
+  for all to authenticated using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  ) with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+create policy "withdrawal_requests_owner_read" on public.withdrawal_requests
+  for select to authenticated using (user_id = auth.uid());
+
+create or replace function public.sta_increment_driver_rides(p_driver_id uuid)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is distinct from p_driver_id
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Not authorized' using errcode = '42501';
+  end if;
+  update public.driver_profiles
+    set total_rides = total_rides + 1, updated_at = now()
+    where user_id = p_driver_id;
+end;
+$$;
+
+create or replace function public.sta_nearby_drivers(
+  p_latitude double precision, p_longitude double precision,
+  p_vehicle_type text default null, p_region text default null
+)
+returns table(driver_id uuid, latitude double precision, longitude double precision)
+language sql stable security definer set search_path = public, pg_temp as $$
+  select dp.user_id, dl.latitude, dl.longitude
+  from public.driver_profiles dp
+  join public.driver_locations dl on dl.driver_id = dp.user_id
+  where dp.is_online = true
+    and dp.availability_status = 'idle'
+    and dp.verification_status = 'verified'
+    and (p_vehicle_type is null or dp.vehicle_type = p_vehicle_type)
+    and (p_region is null or dp.region = p_region)
+    and dl.recorded_at > now() - interval '2 minutes'
+    and abs(dl.latitude - p_latitude) <= 0.15
+    and abs(dl.longitude - p_longitude) <= 0.15;
+$$;
+revoke all on function public.sta_nearby_drivers(double precision,double precision,text,text) from public;
+grant execute on function public.sta_nearby_drivers(double precision,double precision,text,text) to authenticated;
