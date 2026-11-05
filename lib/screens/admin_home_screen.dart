@@ -16,6 +16,8 @@ import 'admin_live_trips_screen.dart';
 import 'admin_driver_verification_fragment.dart';
 import 'admin_staff_fragment.dart';
 import 'admin_system_audit_screen.dart';
+import 'fleet_management_screen.dart';
+import 'notifications_screen.dart';
 import 'admin_notifications_screen.dart';
 import 'admin_finance_screen.dart';
 
@@ -145,9 +147,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     AdminMenuItem("Trip History", Icons.history_rounded, 6),
     AdminMenuItem("Finance & Payouts", Icons.account_balance_wallet_rounded, 7),
     AdminMenuItem("Departments", Icons.lan_rounded, 8),
-    AdminMenuItem("Notifications", Icons.notifications_active_rounded, 9),
+    AdminMenuItem("Broadcasts", Icons.campaign_rounded, 9),
     AdminMenuItem("Configurations", Icons.settings_suggest_rounded, 10),
     AdminMenuItem("System Audit", Icons.security_rounded, 11),
+    AdminMenuItem("Fleet Management", Icons.directions_bus_rounded, 12),
+    AdminMenuItem("Notification Inbox", Icons.notifications_none_rounded, 13),
   ];
 
   Widget _buildBody() {
@@ -165,7 +169,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         const AdminStaffFragment(),
         const AdminNotificationsScreen(),
         const AdminSettingsScreen(),
-        const AdminSystemAuditScreen(), // Use the new screen as a fragment or full screen
+        const AdminSystemAuditScreen(),
+        const FleetManagementScreen(),
+        const NotificationsScreen(),
       ],
     );
   }
@@ -401,6 +407,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   _buildSidebarItem(_menuItems[3], _selectedIndex == 3),
                   _buildSidebarItem(_menuItems[4], _selectedIndex == 4),
                   _buildSidebarItem(_menuItems[5], _selectedIndex == 5),
+                  _buildSidebarItem(_menuItems[12], _selectedIndex == 12),
                 ],
                 const SizedBox(height: 10),
                 _buildSectionHeader("REPORTS"),
@@ -408,6 +415,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   _buildSidebarItem(_menuItems[6], _selectedIndex == 6),
                   _buildSidebarItem(_menuItems[7], _selectedIndex == 7),
                   _buildSidebarItem(_menuItems[9], _selectedIndex == 9),
+                  _buildSidebarItem(_menuItems[13], _selectedIndex == 13),
                 ],
                 const SizedBox(height: 10),
                 _buildSectionHeader("SYSTEM"),
