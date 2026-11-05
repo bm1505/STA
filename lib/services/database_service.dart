@@ -647,6 +647,8 @@ class DatabaseService {
       'trips', 'wallets', 'wallet_transactions', 'payments',
       'withdrawal_requests', 'notification_broadcasts', 'app_settings',
       'chat_messages', 'sos_alerts', 'ride_ratings', 'ride_safety_events',
+      'transport_organizations','organization_members','transport_branches','fleet_vehicles',
+      'fleet_vehicle_assignments','fleet_fuel_logs','fleet_maintenance_records','transport_contracts',
     };
     if (!allowed.contains(tableName)) throw ArgumentError('Unknown table');
     final rows = await _db.from(tableName).select();
