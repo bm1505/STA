@@ -165,7 +165,7 @@ create policy org_members_member_read on public.organization_members
 drop policy if exists transport_branches_member_read on public.transport_branches;
 create policy transport_branches_member_read on public.transport_branches
   for select to authenticated using (
-    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer','finance'])
   );
 drop policy if exists fleet_vehicles_member_read on public.fleet_vehicles;
 create policy fleet_vehicles_member_read on public.fleet_vehicles
@@ -190,7 +190,7 @@ create policy fleet_fuel_member_read on public.fleet_fuel_logs
 drop policy if exists fleet_maintenance_member_read on public.fleet_maintenance_records;
 create policy fleet_maintenance_member_read on public.fleet_maintenance_records
   for select to authenticated using (
-    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','viewer'])
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','viewer','finance'])
   );
 drop policy if exists transport_contracts_member_read on public.transport_contracts;
 create policy transport_contracts_member_read on public.transport_contracts
@@ -486,7 +486,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher','viewer']) then
+  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher','viewer','finance']) then
     raise exception 'Fleet monitoring access required' using errcode = '42501';
   end if;
   return query
