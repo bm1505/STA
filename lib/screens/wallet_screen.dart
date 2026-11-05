@@ -419,7 +419,6 @@ class _WalletScreenState extends State<WalletScreen> {
       final result = await PaymentService.initiateCheckout(
         phone: user?.phoneNumber ?? '',
         amount: amount,
-        userRole: user?.role.name ?? 'rider',
       );
       if (result['success'] != true) {
         throw StateError(result['error']?.toString() ?? 'Payment request failed.');
