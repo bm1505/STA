@@ -578,3 +578,52 @@ end;
 $$;
 revoke all on function public.sta_process_withdrawal(uuid,uuid,numeric,boolean) from public;
 grant execute on function public.sta_process_withdrawal(uuid,uuid,numeric,boolean) to authenticated;
+
+
+create or replace function public.sta_set_ride_status(
+  p_ride_id uuid,
+  p_status text,
+  p_fare numeric default null,
+  p_distance_meters numeric default null,
+  p_duration_seconds integer default null,
+  p_payment_status text default null,
+  p_cancellation_reason text default null
+) returns public.ride_requests
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ride public.ride_requests;
+begin
+  select * into v_ride from public.ride_requests where id = p_ride_id for update;
+  if not found then raise exception 'Ride not found'; end if;
+
+  if p_status = 'cancelled' then
+    if v_ride.rider_id <> auth.uid() and v_ride.driver_id <> auth.uid() then
+      raise exception 'Not a ride participant' using errcode = '42501';
+    end if;
+    if v_ride.status in ('completed', 'cancelled') then raise exception 'Ride is already closed'; end if;
+    update public.ride_requests set status='cancelled', cancelled_at=now(),
+      ride_data = ride_data || jsonb_build_object('cancellationReason',p_cancellation_reason)
+      where id=p_ride_id returning * into v_ride;
+  elsif v_ride.driver_id = auth.uid() then
+    if p_status not in ('accepted','driver_arrived','in_progress','completed') then
+      raise exception 'Invalid driver status transition';
+    end if;
+    if p_status='completed' and (p_fare is null or p_fare <= 0) then
+      raise exception 'Completed ride requires a valid fare';
+    end if;
+    update public.ride_requests set
+      status=p_status,
+      final_fare=coalesce(p_fare,final_fare),
+      distance_meters=coalesce(p_distance_meters,distance_meters),
+      duration_seconds=coalesce(p_duration_seconds,duration_seconds),
+      payment_status=coalesce(p_payment_status,payment_status),
+      completed_at=case when p_status='completed' then now() else completed_at end,
+      updated_at=now()
+      where id=p_ride_id returning * into v_ride;
+  else
+    raise exception 'Only the assigned driver can update this ride' using errcode = '42501';
+  end if;
+  return v_ride;
+end;
+$$;
+revoke all on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text,text) from public;
+grant execute on function public.sta_set_ride_status(uuid,text,numeric,numeric,integer,text,text) to authenticated;
