@@ -160,10 +160,11 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                 if (_showHeatmap)
                   CircleLayer(
                     circles: _demandPoints.values.map((ride) {
-                      final pickup = ride['pickup'];
                       return CircleMarker(
-                        point: LatLng((pickup['lat'] as num).toDouble(),
-                            (pickup['lng'] as num).toDouble()),
+                        point: LatLng(
+                          (ride['pickup_latitude'] as num).toDouble(),
+                          (ride['pickup_longitude'] as num).toDouble(),
+                        ),
                         radius: 80, // Larger radius for better heatmap feel
                         useRadiusInMeter: true,
                         color: Colors.red.withValues(alpha: 0.15),
@@ -177,10 +178,11 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                 if (_showHeatmap)
                   CircleLayer(
                     circles: _demandPoints.values.map((ride) {
-                      final pickup = ride['pickup'];
                       return CircleMarker(
-                        point: LatLng((pickup['lat'] as num).toDouble(),
-                            (pickup['lng'] as num).toDouble()),
+                        point: LatLng(
+                          (ride['pickup_latitude'] as num).toDouble(),
+                          (ride['pickup_longitude'] as num).toDouble(),
+                        ),
                         radius: 30,
                         useRadiusInMeter: true,
                         color: Colors.orange.withValues(alpha: 0.2),
@@ -193,14 +195,16 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                 PolylineLayer(
                   polylines: _activeRides.values.map((ride) {
                     try {
-                      final pickup = ride['pickup'];
-                      final dropoff = ride['dropoff'];
                       return Polyline(
                         points: [
-                          LatLng((pickup['lat'] as num).toDouble(),
-                              (pickup['lng'] as num).toDouble()),
-                          LatLng((dropoff['lat'] as num).toDouble(),
-                              (dropoff['lng'] as num).toDouble()),
+                          LatLng(
+                            (ride['pickup_latitude'] as num).toDouble(),
+                            (ride['pickup_longitude'] as num).toDouble(),
+                          ),
+                          LatLng(
+                            (ride['dropoff_latitude'] as num).toDouble(),
+                            (ride['dropoff_longitude'] as num).toDouble(),
+                          ),
                         ],
                         color: AppTheme.adminPrimary.withValues(alpha: 0.3),
                         strokeWidth: 2,
@@ -237,20 +241,22 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                     // Ride Markers (Pickup & Dropoff)
                     ..._activeRides.values.expand((ride) {
                       try {
-                        final pickup = ride['pickup'];
-                        final dropoff = ride['dropoff'];
                         return [
                           Marker(
-                            point: LatLng((pickup['lat'] as num).toDouble(),
-                                (pickup['lng'] as num).toDouble()),
+                            point: LatLng(
+                              (ride['pickup_latitude'] as num).toDouble(),
+                              (ride['pickup_longitude'] as num).toDouble(),
+                            ),
                             width: 30,
                             height: 30,
                             child: const Icon(Icons.location_on,
                                 color: Colors.green, size: 20),
                           ),
                           Marker(
-                            point: LatLng((dropoff['lat'] as num).toDouble(),
-                                (dropoff['lng'] as num).toDouble()),
+                            point: LatLng(
+                              (ride['dropoff_latitude'] as num).toDouble(),
+                              (ride['dropoff_longitude'] as num).toDouble(),
+                            ),
                             width: 30,
                             height: 30,
                             child: const Icon(Icons.flag_rounded,
