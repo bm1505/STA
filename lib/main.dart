@@ -33,7 +33,6 @@ import 'services/notification_service.dart';
 import 'services/location_service.dart';
 import 'services/sound_service.dart';
 import 'services/postgres_service.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
@@ -41,25 +40,6 @@ void main() async {
 
   try {
     await StaSupabase.initialize();
-    if (kIsWeb) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: String.fromEnvironment('FB_API_KEY'),
-          authDomain: String.fromEnvironment('FB_AUTH_DOMAIN'),
-          projectId: String.fromEnvironment('FB_PROJECT_ID'),
-          storageBucket: String.fromEnvironment('FB_STORAGE_BUCKET'),
-          messagingSenderId: String.fromEnvironment('FB_SENDER_ID'),
-          appId: String.fromEnvironment('FB_APP_ID'),
-          measurementId: String.fromEnvironment('FB_MEASUREMENT_ID'),
-        ),
-      );
-    } else {
-      await Firebase.initializeApp();
-      await NotificationService.initialize();
-      await LocationService.initializeService();
-      // Hakikisha sauti na picha (service) zimeanza kabla ya UI
-      await SoundService.initialize();
-    }
     
     // Anzisha Postgres kwa ajili ya Picha (Presentation)
     if (!kIsWeb) {
