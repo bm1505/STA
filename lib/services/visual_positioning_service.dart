@@ -1,17 +1,13 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart'; // Kwa kDebugMode au kIsWeb
 import 'package:exif/exif.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class VisualPositioningService {
-  // UPDATE: Tumeweka key mpya uliyotuma
-  static const String _apiKey =
-      String.fromEnvironment('GCP_API_KEY');
-
   static Future<Map<String, dynamic>?> detectLocationFromCamera() async {
     final XFile? xFile = await _pickImage();
     if (xFile == null) return null;
@@ -36,24 +32,18 @@ class VisualPositioningService {
         }
       }
 
-      // JARIBIO 2: Tumia Gemini AI kama metadata haipo
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
-
-      // Prompt ili kupata jina la sehemu
-      final prompt = TextPart(
-          "Identify the specific landmark or building in this image. "
-          "The user is in Tanzania, so consider local names in Swahili or English. "
-          "Return ONLY the name and city (e.g., 'Mlimani City Mall, Dar es Salaam'). "
-          "If you don't know the exact place, return 'null'.");
-
-      final response = await model.generateContent([
-        Content.multi([prompt, DataPart('image/jpeg', imageBytes)])
-      ]);
-
-      String? resultText = response.text?.trim();
-      print("Visual AI Result: $resultText");
-
-      if (resultText != null && resultText.toLowerCase() != "null") {
+      // JARIBIO 2: Tumia AI ya server kama metadata haipo.
+      final response = await Supabase.instance.client.functions.invoke(
+        'sta-ai',
+        body: {
+          'action': 'visual_landmark',
+          'mimeType': 'image/jpeg',
+          'imageBase64': base64Encode(imageBytes),
+        },
+      );
+      if (response.status != 200 || response.data is! Map) return null;
+      final resultText = (response.data['landmark'] as String?)?.trim();
+      if (resultText != null && resultText.isNotEmpty && resultText.toLowerCase() != 'null') {
         return await _forwardGeocode(resultText);
       }
       return null;
