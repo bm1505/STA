@@ -395,7 +395,7 @@ begin
     p.phone_number,dp.vehicle_type,dp.is_online
   from public.driver_profiles dp
   join public.profiles p on p.id=dp.user_id
-  where dp.verification_status='verified'
+  where dp.verification_status='verified' and p.is_active=true
     and not exists(select 1 from public.fleet_vehicle_assignments a where a.driver_id=dp.user_id and a.status='active')
     and (
       coalesce(trim(p_query),'') = ''
@@ -433,14 +433,23 @@ begin
   if exists(select 1 from public.fleet_vehicle_assignments where driver_id=p_driver_id and status='active') then
     raise exception 'Driver already has an active vehicle assignment';
   end if;
+  if exists(select 1 from public.ride_requests where driver_id=p_driver_id and status in ('accepted','driver_arrived','in_progress')) then
+    raise exception 'Driver must finish the active ride before vehicle assignment';
+  end if;
   insert into public.fleet_vehicle_assignments(organization_id,vehicle_id,driver_id,assigned_by)
   values(p_org_id,p_vehicle_id,p_driver_id,auth.uid()) returning id into v_assignment;
   insert into public.organization_members(organization_id,user_id,role,status)
   values(p_org_id,p_driver_id,'driver','active')
   on conflict(organization_id,user_id) do update set status='active';
   update public.driver_profiles
-  set vehicle_id=p_vehicle_id,vehicle_type=v_vehicle.vehicle_type,vehicle_plate=v_vehicle.registration_number,updated_at=now()
+  set vehicle_id=p_vehicle_id,
+      vehicle_type=v_vehicle.vehicle_type,
+      vehicle_plate=v_vehicle.registration_number,
+      is_online=false,
+      availability_status='offline',
+      updated_at=now()
   where user_id=p_driver_id;
+  delete from public.driver_locations where driver_id=p_driver_id;
   return v_assignment;
 end;
 $$;
