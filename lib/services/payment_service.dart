@@ -9,7 +9,6 @@ class PaymentService {
     required String phone,
     required double amount,
     String? rideId,
-    String userRole = 'rider',
   }) async {
     try {
       final user = _db.auth.currentUser;
