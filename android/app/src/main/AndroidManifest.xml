@@ -27,7 +27,7 @@
         <!-- WEKA GOOGLE MAPS API KEY HAPA -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyC3IaXrGR6U0DppCb_YKHpFZOHYf6CyjhM" />
+            android:value="${MAPS_API_KEY}" />
 
         <activity
             android:name=".MainActivity"
