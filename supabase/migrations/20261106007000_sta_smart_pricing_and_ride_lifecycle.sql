@@ -316,34 +316,36 @@ begin
   end if;
 
   if p_payment_status is not null then
-    if p_payment_status <> 'paid' then
-      raise exception 'Only verified payment completion can update payment status';
+    if p_payment_status not in ('paid', 'pending') then
+      raise exception 'Unsupported payment status transition';
     end if;
-    if v_ride.status <> 'completed' or coalesce(v_ride.payment_status,'pending') = 'paid' then
-      if coalesce(v_ride.payment_status,'pending') = 'paid' then return v_ride; end if;
-      raise exception 'Ride must be completed before payment confirmation';
-    end if;
-    if not v_is_service and not v_is_admin
-       and (auth.uid() is distinct from v_ride.driver_id or v_ride.payment_method <> 'cash') then
-      raise exception 'Digital payments must be confirmed by the payment provider';
-    end if;
-    update public.ride_requests set payment_status = 'paid', updated_at = now()
-    where id = p_ride_id returning * into v_ride;
+    if p_payment_status = 'paid' then
+      if v_ride.status <> 'completed' or coalesce(v_ride.payment_status,'pending') = 'paid' then
+        if coalesce(v_ride.payment_status,'pending') = 'paid' then return v_ride; end if;
+        raise exception 'Ride must be completed before payment confirmation';
+      end if;
+      if not v_is_service and not v_is_admin
+         and (auth.uid() is distinct from v_ride.driver_id or v_ride.payment_method <> 'cash') then
+        raise exception 'Digital payments must be confirmed by the payment provider';
+      end if;
+      update public.ride_requests set payment_status = 'paid', updated_at = now()
+      where id = p_ride_id returning * into v_ride;
 
-    select exists(select 1 from public.trips where ride_request_id = p_ride_id)
-      into v_was_recorded;
-    if not v_was_recorded then
-      perform public.sta_record_trip(jsonb_build_object(
-        'id', p_ride_id,
-        'driverId', v_ride.driver_id,
-        'fare', v_ride.final_fare,
-        'paymentMethod', v_ride.payment_method
-      ));
-      update public.driver_profiles
-      set total_rides = total_rides + 1,
-          availability_status = 'idle',
-          updated_at = now()
-      where user_id = v_ride.driver_id;
+      select exists(select 1 from public.trips where ride_request_id = p_ride_id)
+        into v_was_recorded;
+      if not v_was_recorded then
+        perform public.sta_record_trip(jsonb_build_object(
+          'id', p_ride_id,
+          'driverId', v_ride.driver_id,
+          'fare', v_ride.final_fare,
+          'paymentMethod', v_ride.payment_method
+        ));
+        update public.driver_profiles
+        set total_rides = total_rides + 1,
+            availability_status = 'idle',
+            updated_at = now()
+        where user_id = v_ride.driver_id;
+      end if;
     end if;
   end if;
 
