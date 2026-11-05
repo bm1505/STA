@@ -103,6 +103,38 @@ serve(async (req) => {
       }, { headers: corsHeaders });
     }
 
+    if (action === "support_assistant") {
+      const message = typeof body.message === "string" ? body.message.trim().slice(0, 1200) : "";
+      if (message.length < 2) {
+        return Response.json({ error: "A support message is required" }, { status: 400, headers: corsHeaders });
+      }
+      const { data: profile } = await supabase
+        .from("profiles").select("role,is_active").eq("id", authData.user.id).maybeSingle();
+      if (!profile || profile.is_active === false) {
+        return Response.json({ error: "Active STA account required" }, { status: 403, headers: corsHeaders });
+      }
+      let recentRides: Record<string, unknown>[] = [];
+      if (profile.role === "rider") {
+        const { data } = await supabase.from("ride_requests")
+          .select("id,status,vehicle_type,pickup_label,dropoff_label,estimated_fare,final_fare,payment_status,created_at")
+          .eq("rider_id", authData.user.id).order("created_at", { ascending: false }).limit(3);
+        recentRides = data ?? [];
+      } else if (profile.role === "driver") {
+        const { data } = await supabase.from("ride_requests")
+          .select("id,status,vehicle_type,pickup_label,dropoff_label,estimated_fare,final_fare,payment_status,created_at")
+          .eq("driver_id", authData.user.id).order("created_at", { ascending: false }).limit(3);
+        recentRides = data ?? [];
+      }
+      const answer = await generate(
+        `You are the STA transport app support assistant. Reply in the same language as the user (Swahili or English), briefly and clearly. Use only the verified account and recent ride context below. Never invent a ride, payment, refund, driver, route, policy or action. You cannot change ride status, issue refunds, verify payments or contact emergency services. If the issue involves immediate danger, advise the user to call local emergency services (112 in Tanzania) and use the in-app SOS. For payment disputes, safety reports, account access problems or anything you cannot verify, clearly recommend opening a human support chat. Account role: ${profile.role}. Recent ride records: ${JSON.stringify(recentRides)}. User message: ${message}`,
+      );
+      const needsHumanSupport = /refund|fraud|scam|sos|emergency|accident|payment|malipo|usalama|dharura|ajali|kurudishiwa/i.test(message);
+      return Response.json({
+        answer: answer.slice(0, 1800),
+        needsHumanSupport,
+      }, { headers: corsHeaders });
+    }
+
     if (action === "destination_intent") {
       const text = typeof body.text === "string" ? body.text.trim().slice(0, 500) : "";
       if (!text) return Response.json({ error: "Voice text is required" }, { status: 400, headers: corsHeaders });
