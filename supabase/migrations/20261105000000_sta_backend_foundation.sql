@@ -207,8 +207,10 @@ create policy "driver_profile_select_self" on public.driver_profiles
 create policy "driver_profile_update_self" on public.driver_profiles
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create policy "driver_locations_select_authenticated" on public.driver_locations
-  for select to authenticated using (true);
+-- Drivers can read their own precise location only. Rider access to nearby driver
+-- positions must be exposed through a bounded server-side query/RPC.
+create policy "driver_locations_select_self" on public.driver_locations
+  for select to authenticated using (driver_id = auth.uid());
 create policy "driver_locations_insert_self" on public.driver_locations
   for insert to authenticated with check (driver_id = auth.uid());
 create policy "driver_locations_update_self" on public.driver_locations
