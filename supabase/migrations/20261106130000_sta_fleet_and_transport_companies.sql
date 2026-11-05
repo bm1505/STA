@@ -152,20 +152,47 @@ create policy transport_orgs_owner_update on public.transport_organizations
 create policy transport_orgs_admin_read on public.transport_organizations
   for select to authenticated using (public.sta_is_active_admin());
 
+drop policy if exists org_members_member_read on public.organization_members;
 create policy org_members_member_read on public.organization_members
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    user_id = auth.uid()
+    or public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','finance','dispatcher','viewer'])
+  );
+drop policy if exists transport_branches_member_read on public.transport_branches;
 create policy transport_branches_member_read on public.transport_branches
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+  );
+drop policy if exists fleet_vehicles_member_read on public.fleet_vehicles;
 create policy fleet_vehicles_member_read on public.fleet_vehicles
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+    or exists (
+      select 1 from public.fleet_vehicle_assignments a
+      where a.vehicle_id=fleet_vehicles.id and a.driver_id=auth.uid() and a.status='active'
+    )
+  );
+drop policy if exists fleet_assignments_member_read on public.fleet_vehicle_assignments;
 create policy fleet_assignments_member_read on public.fleet_vehicle_assignments
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    driver_id=auth.uid()
+    or public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','dispatcher','viewer'])
+  );
+drop policy if exists fleet_fuel_member_read on public.fleet_fuel_logs;
 create policy fleet_fuel_member_read on public.fleet_fuel_logs
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','finance','viewer'])
+  );
+drop policy if exists fleet_maintenance_member_read on public.fleet_maintenance_records;
 create policy fleet_maintenance_member_read on public.fleet_maintenance_records
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    public.sta_is_org_member(organization_id,array['owner','manager','fleet_manager','viewer'])
+  );
+drop policy if exists transport_contracts_member_read on public.transport_contracts;
 create policy transport_contracts_member_read on public.transport_contracts
-  for select to authenticated using (public.sta_is_org_member(organization_id));
+  for select to authenticated using (
+    public.sta_is_org_member(organization_id,array['owner','manager','finance','viewer'])
+  );
 create or replace function public.sta_create_transport_organization(
   p_name text,
   p_organization_type text,
@@ -203,8 +230,8 @@ security definer
 set search_path = public, pg_temp
 as $
 begin
-  if not public.sta_is_org_member(p_org_id) then
-    raise exception 'Organization access required' using errcode = '42501';
+  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','finance','dispatcher','viewer']) then
+    raise exception 'Organization management access required' using errcode = '42501';
   end if;
   return query
   select m.user_id,
@@ -409,7 +436,7 @@ begin
   values(p_org_id,p_vehicle_id,p_driver_id,auth.uid()) returning id into v_assignment;
   insert into public.organization_members(organization_id,user_id,role,status)
   values(p_org_id,p_driver_id,'driver','active')
-  on conflict(organization_id,user_id) do update set role='driver',status='active';
+  on conflict(organization_id,user_id) do nothing;
   update public.driver_profiles
   set vehicle_id=p_vehicle_id,vehicle_type=v_vehicle.vehicle_type,vehicle_plate=v_vehicle.registration_number,updated_at=now()
   where user_id=p_driver_id;
@@ -474,6 +501,10 @@ begin
   update public.driver_profiles
   set vehicle_id=null,updated_at=now()
   where user_id=v_assignment.driver_id and vehicle_id=v_assignment.vehicle_id;
+  update public.organization_members
+  set status='suspended'
+  where organization_id=v_assignment.organization_id
+    and user_id=v_assignment.driver_id and role='driver';
 end;
 $;
 revoke all on function public.sta_unassign_driver_vehicle(uuid) from public;
