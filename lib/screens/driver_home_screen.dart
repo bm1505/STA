@@ -820,6 +820,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   Container(width: 40, height: 5, decoration: BoxDecoration(color: isDark ? Colors.white24 : Colors.black12, borderRadius: BorderRadius.circular(10))),
                   const SizedBox(height: 20),
                   Text(LocalizationService.translate('preferences', lang), style: GoogleFonts.poppins(color: AppTheme.primaryGold, fontSize: 18, fontWeight: FontWeight.bold)),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_none, color: AppTheme.primaryGold),
+                    title: Text('Notifications', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/notifications');
+                    },
+                  ),
                   Divider(color: isDark ? Colors.white12 : Colors.black12, height: 30),
                   Text(LocalizationService.translate('language', lang), style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
                   RadioGroup<String>(
