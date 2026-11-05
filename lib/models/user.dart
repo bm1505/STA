@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum UserRole { rider, driver, admin, it, support }
 
 enum VerificationStatus { pending, verified, rejected }
@@ -124,7 +122,6 @@ class UserModel {
     // Robust DateTime parsing helper
     DateTime parseDate(dynamic value, {bool required = false}) {
       if (value == null) return required ? DateTime.now() : DateTime.now();
-      if (value is Timestamp) return value.toDate();
       if (value is String) {
         return DateTime.tryParse(value) ?? (required ? DateTime.now() : DateTime.now());
       }
@@ -133,7 +130,6 @@ class UserModel {
 
     DateTime? parseDateNullable(dynamic value) {
       if (value == null) return null;
-      if (value is Timestamp) return value.toDate();
       if (value is String) return DateTime.tryParse(value);
       return null;
     }
@@ -212,11 +208,6 @@ class UserModel {
     );
   }
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    data['id'] = doc.id;
-    return UserModel.fromJson(data);
-  }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {
