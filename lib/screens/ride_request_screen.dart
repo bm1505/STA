@@ -53,6 +53,8 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
   String _demandLevel = 'normal';
   String _selectedPaymentMethod = "Cash";
   List<ll.LatLng> _polylinePoints = [];
+  List<RouteAlternative> _routeAlternatives = [];
+  int _selectedRouteAlternative = -1;
   RideProvider? _rideProvider;
   bool _isDriverRouteFetched = false;
   DateTime? _lastRouteUpdateTime;
@@ -640,6 +642,8 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
           _distance = routeInfo.distance;
           _estimatedDurationSeconds = routeInfo.duration * 60;
           _trafficAware = routeInfo.trafficAware;
+          _routeAlternatives = routeInfo.alternatives;
+          _selectedRouteAlternative = -1;
           _demandLevel = fareEstimate['demand_level']?.toString() ?? 'normal';
           _polylinePoints = routeInfo.polyline
               .map((p) => ll.LatLng(p.latitude, p.longitude))
@@ -670,6 +674,42 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
           _estimatedDurationSeconds = 0;
           _polylinePoints = [];
         });
+      }
+    }
+  }
+
+  Future<void> _selectRouteAlternative(RouteAlternative alternative, int index) async {
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final pickup = _pickupLatLng ?? (args?['pickupLatLng'] as ll.LatLng?);
+    final vehicle = args?['vehicle'] as Vehicle?;
+    if (pickup == null || vehicle == null) return;
+    try {
+      final estimate = await DatabaseService.instance.estimateFare(
+        vehicleType: vehicle.name,
+        distanceMeters: alternative.distance * 1000,
+        durationSeconds: alternative.duration * 60,
+        pickupLatitude: pickup.latitude,
+        pickupLongitude: pickup.longitude,
+      );
+      final fare = (estimate['estimated_fare'] as num?)?.toDouble() ?? 0;
+      if (fare <= 0) throw StateError('No valid fare estimate for this route.');
+      if (!mounted) return;
+      setState(() {
+        _selectedRouteAlternative = index;
+        _distance = alternative.distance;
+        _estimatedDurationSeconds = alternative.duration * 60;
+        _calculatedFare = fare;
+        _demandLevel = estimate['demand_level']?.toString() ?? 'normal';
+        _polylinePoints = alternative.polyline
+            .map((point) => ll.LatLng(point.latitude, point.longitude))
+            .toList();
+      });
+    } catch (error) {
+      debugPrint('Alternative route selection failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not calculate a fare for that route.')),
+        );
       }
     }
   }
@@ -2258,6 +2298,33 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                     ),
                   ],
                 ),
+                if (_routeAlternatives.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Alternative routes',
+                      style: GoogleFonts.poppins(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: List.generate(_routeAlternatives.length, (index) {
+                      final route = _routeAlternatives[index];
+                      return ChoiceChip(
+                        label: Text('${route.distance.toStringAsFixed(1)} km · ${route.duration} min'),
+                        selected: _selectedRouteAlternative == index,
+                        onSelected: (_) => _selectRouteAlternative(route, index),
+                        selectedColor: AppTheme.primaryGold,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        labelStyle: TextStyle(
+                          color: _selectedRouteAlternative == index ? Colors.black : Colors.white70,
+                          fontSize: 10,
+                        ),
+                      );
+                    }),
+                  ),
+                ],
                 Divider(height: 25, color: Colors.white.withValues(alpha: 0.1)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
