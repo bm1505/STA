@@ -1,5 +1,5 @@
 -- STA Supabase backend foundation.
--- Additive migration only: this does not delete or modify Firebase data.
+-- Additive migration only: existing application data is not deleted or modified.
 -- Review and apply in a Supabase project only after confirming the project is the intended target.
 
 create extension if not exists pgcrypto;
