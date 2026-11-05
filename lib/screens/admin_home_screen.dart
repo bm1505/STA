@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sta/providers/auth_provider.dart';
 import 'package:sta/utils/theme.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'admin_dashboard_fragment.dart';
 import 'admin_drivers_screen.dart';
@@ -30,6 +30,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   bool _isSidebarCollapsed = false;
   final Set<String> _expandedSections = {"OPERATIONS", "MANAGEMENT", "REPORTS", "SYSTEM"};
   final FlutterTts _flutterTts = FlutterTts();
+  StreamSubscription<List<Map<String, dynamic>>>? _sosSubscription;
+  final Set<String> _seenSosAlerts = <String>{};
 
   @override
   void initState() {
@@ -48,20 +50,27 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   void dispose() {
     _flutterTts.stop();
+    _sosSubscription?.cancel();
     super.dispose();
   }
 
   void _listenForSosAlerts() {
-    FirebaseFirestore.instance
-        .collection('sos_alerts')
-        .where('status', isEqualTo: 'active')
-        .snapshots()
-        .listen((snapshot) {
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          _showSosPopup(change.doc.id, change.doc.data() as Map<String, dynamic>);
-        }
+    _sosSubscription = Supabase.instance.client
+        .from('sos_alerts')
+        .stream(primaryKey: ['id'])
+        .eq('status', 'active')
+        .listen((rows) {
+      for (final row in rows) {
+        final id = row['id']?.toString();
+        if (id == null || !_seenSosAlerts.add(id)) continue;
+        _showSosPopup(id, {
+          ...row,
+          'userId': row['user_id'],
+          'timestamp': row['created_at'],
+        });
       }
+    }, onError: (Object error) {
+      debugPrint('STA SOS subscription failed: $error');
     });
   }
 
@@ -87,7 +96,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           children: [
             Text("User ID: ${data['userId']}", style: const TextStyle(color: Colors.white70)),
             const SizedBox(height: 10),
-            Text("Time: ${data['timestamp'] != null ? (data['timestamp'] as Timestamp).toDate().toString() : 'Unknown'}",
+            Text("Time: ${data['timestamp'] != null ? DateTime.tryParse(data['timestamp'].toString())?.toLocal().toString() ?? 'Unknown' : 'Unknown'}",
                 style: const TextStyle(color: Colors.white70)),
             const SizedBox(height: 20),
             const Text("Immediate action required! Track this user on the map.",
@@ -115,7 +124,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () async {
               _flutterTts.stop();
-              await FirebaseFirestore.instance.collection('sos_alerts').doc(alertId).update({'status': 'resolved'});
+              await Supabase.instance.client.rpc('sta_resolve_sos', params: {'p_alert_id': alertId});
               Navigator.pop(context);
             },
             child: const Text("RESOLVE"),
