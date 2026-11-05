@@ -18,6 +18,7 @@ import 'admin_staff_fragment.dart';
 import 'admin_system_audit_screen.dart';
 import 'fleet_management_screen.dart';
 import 'notifications_screen.dart';
+import 'admin_safety_events_screen.dart';
 import 'admin_notifications_screen.dart';
 import 'admin_finance_screen.dart';
 
@@ -152,6 +153,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     AdminMenuItem("System Audit", Icons.security_rounded, 11),
     AdminMenuItem("Fleet Management", Icons.directions_bus_rounded, 12),
     AdminMenuItem("Notification Inbox", Icons.notifications_none_rounded, 13),
+    AdminMenuItem("Safety & Risk", Icons.health_and_safety_rounded, 14),
   ];
 
   Widget _buildBody() {
@@ -172,6 +174,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         const AdminSystemAuditScreen(),
         const FleetManagementScreen(),
         const NotificationsScreen(),
+        const AdminSafetyEventsScreen(),
       ],
     );
   }
@@ -423,6 +426,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   _buildSidebarItem(_menuItems[8], _selectedIndex == 8),
                   _buildSidebarItem(_menuItems[10], _selectedIndex == 10),
                   if (isIT) _buildSidebarItem(_menuItems[11], _selectedIndex == 11),
+                  _buildSidebarItem(_menuItems[14], _selectedIndex == 14),
                 ],
               ],
             ),
