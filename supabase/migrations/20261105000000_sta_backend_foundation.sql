@@ -21,6 +21,46 @@ create table if not exists public.profiles (
 create unique index if not exists profiles_email_lower_uidx
   on public.profiles (lower(email)) where email is not null;
 
+-- Create the profile row when Supabase Auth creates an account. The profile
+-- payload is supplied by the STA client as auth user metadata.
+create or replace function public.sta_handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  v_role text;
+  v_name text;
+  v_phone text;
+begin
+  v_role := coalesce(new.raw_user_meta_data ->> 'role', 'rider');
+  if v_role not in ('rider', 'driver', 'admin', 'staff', 'it', 'support') then
+    v_role := 'rider';
+  end if;
+  v_name := coalesce(new.raw_user_meta_data ->> 'name', '');
+  v_phone := coalesce(new.raw_user_meta_data ->> 'phone_number', '');
+
+  insert into public.profiles (id, role, full_name, email, phone_number, user_data)
+  values (
+    new.id, v_role, v_name, new.email, v_phone,
+    jsonb_build_object(
+      'id', new.id, 'role', v_role, 'name', v_name,
+      'email', coalesce(new.email, ''), 'phoneNumber', v_phone,
+      'createdAt', now(), 'isVerified', false,
+      'verificationStatus', case when v_role = 'driver' then 'pending' else 'verified' end
+    )
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$;
+
+drop trigger if exists sta_on_auth_user_created on auth.users;
+create trigger sta_on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.sta_handle_new_auth_user();
+
 create table if not exists public.driver_profiles (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   verification_status text not null default 'pending'
