@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -254,8 +253,8 @@ class _WalletScreenState extends State<WalletScreen> {
               title: tx['description'] ?? 'Transaction',
               subtitle: tx['type'] ?? 'payment',
               amount: (tx['amount'] as num?)?.toDouble() ?? 0.0,
-              date: tx['timestamp'] != null 
-                ? DateFormat('MMM dd, hh:mm a').format((tx['timestamp'] as Timestamp).toDate())
+              date: tx['created_at'] != null
+                ? DateFormat('MMM dd, hh:mm a').format(DateTime.parse(tx['created_at'].toString()).toLocal())
                 : 'Recent',
               isDark: isDark,
             );
@@ -416,13 +415,20 @@ class _WalletScreenState extends State<WalletScreen> {
     final user = auth.currentUser;
 
     try {
-      // Automatic Wallet Credit (Immediate)
-      await DatabaseService.instance.approveTopUpDirect(user?.id ?? '', amount);
+      final result = await PaymentService.initiateCheckout(
+        phone: user?.phoneNumber ?? '',
+        amount: amount,
+        userRole: user?.role.name ?? 'rider',
+      );
+      if (result['success'] != true) {
+        throw StateError(result['error']?.toString() ?? 'Payment request failed.');
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Wallet topped up successfully!"),
-          backgroundColor: Colors.green));
+        content: Text("Top-up request submitted. Funds are added only after payment verification."),
+        backgroundColor: Colors.green,
+      ));
 
     } catch (e) {
       if (!mounted) return;
@@ -641,21 +647,12 @@ class _WalletScreenState extends State<WalletScreen> {
     final user = auth.currentUser;
 
     try {
-      await FirebaseFirestore.instance.collection('withdrawals').add({
-        'userId': user?.id,
-        'phoneNumber': target,
-        'payoutMethod': method,
-        'payoutProvider': provider,
-        'amount': amount,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Optional: Update user profile with latest payout preference
-      await FirebaseFirestore.instance.collection('drivers').doc(user?.id).update({
-        'payoutMethod': provider,
-        'payoutNumber': target,
-      });
+      await DatabaseService.instance.requestWithdrawal(
+        amount: amount,
+        phoneNumber: target.trim(),
+        payoutMethod: method,
+        payoutProvider: provider,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
