@@ -506,6 +506,12 @@ class DatabaseService {
       case 'safety_events':
         return _db.from('ride_safety_events').stream(primaryKey: ['id'])
             .map((rows) => rows.where((row) => row['status'] == 'open').length.toString());
+      case 'fleet_vehicles':
+        return _db.from('fleet_vehicles').stream(primaryKey: ['id'])
+            .map((rows) => rows.length.toString());
+      case 'transport_organizations':
+        return _db.from('transport_organizations').stream(primaryKey: ['id'])
+            .map((rows) => rows.length.toString());
       default:
         throw ArgumentError('Unknown admin metric');
     }
@@ -528,6 +534,14 @@ class DatabaseService {
       'sos_alerts': ['id'],
       'ride_ratings': ['id'],
       'ride_safety_events': ['id'],
+      'transport_organizations': ['id'],
+      'organization_members': ['organization_id', 'user_id'],
+      'transport_branches': ['id'],
+      'fleet_vehicles': ['id'],
+      'fleet_vehicle_assignments': ['id'],
+      'fleet_fuel_logs': ['id'],
+      'fleet_maintenance_records': ['id'],
+      'transport_contracts': ['id'],
     };
     final keys = primaryKeys[tableName];
     if (keys == null) throw ArgumentError('Table is not available in the STA admin explorer');
@@ -623,6 +637,8 @@ class DatabaseService {
     'trips', 'wallets', 'wallet_transactions', 'payments',
     'withdrawal_requests', 'notification_broadcasts', 'app_settings',
     'chat_messages', 'sos_alerts', 'ride_ratings', 'ride_safety_events',
+    'transport_organizations','organization_members','transport_branches','fleet_vehicles',
+    'fleet_vehicle_assignments','fleet_fuel_logs','fleet_maintenance_records','transport_contracts',
   ];
 
   Future<List<Map<String, dynamic>>> getTableData(String tableName) async {
