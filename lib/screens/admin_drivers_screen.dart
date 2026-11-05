@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
@@ -124,14 +123,12 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
   }
 
   Widget _buildDriversList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('drivers').snapshots(),
+    return StreamBuilder<List<UserModel>>(
+      stream: DatabaseService.instance.getDriversStream(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-        var drivers = snapshot.data!.docs.map((doc) {
-          return UserModel.fromFirestore(doc);
-        }).toList();
+        var drivers = List<UserModel>.from(snapshot.data!);
 
         // Apply filters
         if (_searchQuery.isNotEmpty) {
@@ -320,23 +317,20 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
                           Text("USER REVIEWS & FEEDBACK", 
                             style: GoogleFonts.inter(color: AppTheme.adminPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
                           const SizedBox(height: 15),
-                          StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('ratings')
-                                .where('driverId', isEqualTo: driver.id)
-                                .orderBy('timestamp', descending: true)
-                                .limit(10)
-                                .snapshots(),
+                          StreamBuilder<List<Map<String, dynamic>>>(
+                            stream: DatabaseService.instance.getDriverRatingsStream(driver.id),
                             builder: (context, reviewSnap) {
                               if (!reviewSnap.hasData) return const Center(child: CircularProgressIndicator());
-                              final reviews = reviewSnap.data!.docs;
+                              final reviews = [...reviewSnap.data!]
+                                ..sort((a, b) => (b['created_at']?.toString() ?? '')
+                                    .compareTo(a['created_at']?.toString() ?? ''));
                               if (reviews.isEmpty) return const Text("No reviews yet", style: TextStyle(color: Colors.white24, fontSize: 12));
                               return ListView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: reviews.length,
                                 itemBuilder: (context, index) {
-                                  final rev = reviews[index].data() as Map<String, dynamic>;
+                                  final rev = reviews[index];
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 10),
                                     padding: const EdgeInsets.all(12),
@@ -363,8 +357,8 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
                                           ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          rev['timestamp'] != null 
-                                            ? DateFormat('MMM dd, yyyy').format((rev['timestamp'] as Timestamp).toDate())
+                                          rev['created_at'] != null
+                                            ? DateFormat('MMM dd, yyyy').format(DateTime.parse(rev['created_at'].toString()).toLocal())
                                             : "",
                                           style: const TextStyle(color: Colors.white24, fontSize: 10),
                                         ),
@@ -397,10 +391,7 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('drivers')
-                                          .doc(driver.id)
-                                          .update({'profileEditStatus': 'allowed'});
+                                      await DatabaseService.instance.allowDriverProfileEdit(driver.id);
                                       if (context.mounted) Navigator.pop(context);
                                     },
                                     child: const Text("ALLOW", style: TextStyle(fontWeight: FontWeight.bold)),
