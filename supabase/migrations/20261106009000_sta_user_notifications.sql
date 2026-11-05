@@ -16,11 +16,6 @@ alter table public.user_notifications enable row level security;
 drop policy if exists user_notifications_select_owner on public.user_notifications;
 create policy user_notifications_select_owner on public.user_notifications
   for select to authenticated using (user_id = auth.uid());
-drop policy if exists user_notifications_update_owner on public.user_notifications;
-create policy user_notifications_update_owner on public.user_notifications
-  for update to authenticated using (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
 create or replace function public.sta_mark_notification_read(p_notification_id uuid)
 returns void
 language plpgsql
