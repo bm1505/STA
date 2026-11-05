@@ -590,6 +590,69 @@ create policy fleet_maintenance_admin_read on public.fleet_maintenance_records
 create policy transport_contracts_admin_read on public.transport_contracts
   for select to authenticated using (public.sta_is_active_admin());
 
+-- Fleet assignment controls which vehicle type a managed driver may operate.
+create or replace function public.sta_set_driver_presence(
+  p_status text,
+  p_vehicle_type text default null,
+  p_region text default null,
+  p_city text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  v_driver public.driver_profiles;
+  v_assigned_vehicle public.fleet_vehicles;
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode = '28000'; end if;
+  if p_status not in ('offline','idle','on_trip') then raise exception 'Invalid driver availability status'; end if;
+
+  select * into v_driver from public.driver_profiles where user_id=auth.uid() for update;
+  if not found then raise exception 'Driver profile not found' using errcode = 'P0002'; end if;
+  if p_status <> 'offline' and v_driver.verification_status <> 'verified' then
+    raise exception 'Driver verification is required' using errcode = '42501';
+  end if;
+  if p_status = 'offline' and exists(
+    select 1 from public.ride_requests
+    where driver_id=auth.uid() and status in ('accepted','driver_arrived','in_progress')
+  ) then raise exception 'Complete or cancel the active ride before going offline'; end if;
+  if p_status = 'on_trip' and not exists(
+    select 1 from public.ride_requests
+    where driver_id=auth.uid() and status in ('accepted','driver_arrived','in_progress')
+  ) then raise exception 'No active ride found for this driver'; end if;
+  if p_status = 'idle' and exists(
+    select 1 from public.ride_requests
+    where driver_id=auth.uid() and status in ('accepted','driver_arrived','in_progress')
+  ) then raise exception 'Driver has an active ride and cannot become idle'; end if;
+
+  if v_driver.vehicle_id is not null then
+    select * into v_assigned_vehicle from public.fleet_vehicles
+    where id=v_driver.vehicle_id and status='active';
+    if p_status <> 'offline' and not found then
+      raise exception 'Your assigned fleet vehicle is not active. Contact your fleet manager.';
+    end if;
+  end if;
+
+  update public.driver_profiles
+  set is_online=(p_status <> 'offline'),
+      availability_status=p_status,
+      vehicle_type=coalesce(v_assigned_vehicle.vehicle_type,p_vehicle_type,vehicle_type),
+      vehicle_plate=coalesce(v_assigned_vehicle.registration_number,vehicle_plate),
+      region=coalesce(p_region,region),
+      city=coalesce(p_city,city),
+      updated_at=now()
+  where user_id=auth.uid();
+
+  if p_status='offline' then
+    delete from public.driver_locations where driver_id=auth.uid();
+  end if;
+end;
+$;
+revoke all on function public.sta_set_driver_presence(text,text,text,text) from public;
+grant execute on function public.sta_set_driver_presence(text,text,text,text) to authenticated;
+
 -- Realtime streams for fleet dashboards.
 do $$
 declare v_table text;
