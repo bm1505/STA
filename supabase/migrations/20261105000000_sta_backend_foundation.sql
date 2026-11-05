@@ -54,7 +54,7 @@ begin
   on conflict (id) do nothing;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists sta_on_auth_user_created on auth.users;
 create trigger sta_on_auth_user_created
