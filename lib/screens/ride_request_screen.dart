@@ -24,7 +24,6 @@ import '../services/database_service.dart';
 import '../services/voice_service.dart';
 import '../services/call_service.dart';
 import 'call_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/payment_service.dart';
 import '../utils/theme.dart';
 import '../widgets/profile_image_widget.dart';
@@ -1719,7 +1718,7 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                               ride.distance > 0 ? ride.distance : _distance,
                           'status': 'completed',
                           'payment_method': _selectedPaymentMethod,
-                          'timestamp': FieldValue.serverTimestamp(),
+                          'timestamp': DateTime.now().toUtc().toIso8601String(),
                           'vehicleType': ride.vehicleType,
                         });
                       }
