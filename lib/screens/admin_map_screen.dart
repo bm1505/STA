@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,9 +20,10 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
   bool _showHeatmap = true;
   final MapController _mapController = MapController();
 
-  StreamSubscription? _driverSubscription;
-  StreamSubscription? _rideSubscription;
-  StreamSubscription? _demandSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _driverSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _rideSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _demandSubscription;
+  SupabaseClient get _db => Supabase.instance.client;
 
   @override
   void initState() {
@@ -31,85 +32,84 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
   }
 
   void _setupListeners() {
-    // 1. Listen to Online Drivers
-    _driverSubscription = FirebaseFirestore.instance
-        .collection('drivers_online')
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
+    _driverSubscription = _db.from('driver_locations')
+        .stream(primaryKey: ['driver_id'])
+        .listen((locations) async {
+      try {
+        final ids = locations.map((row) => row['driver_id'].toString()).toList();
+        if (ids.isEmpty) {
+          if (mounted) setState(_onlineDrivers.clear);
+          return;
+        }
+        final driverRows = await _db.from('driver_profiles')
+            .select('user_id,vehicle_type,availability_status,is_online')
+            .inFilter('user_id', ids);
+        final profileRows = await _db.from('profiles')
+            .select('id,full_name,user_data').inFilter('id', ids);
+        final driversById = {for (final row in driverRows) row['user_id'].toString(): row};
+        final profilesById = {for (final row in profileRows) row['id'].toString(): row};
+        if (!mounted) return;
         setState(() {
-          for (var change in snapshot.docChanges) {
-            final data = change.doc.data();
-            if (data != null) {
-              final id = change.doc.id;
-              if (change.type == DocumentChangeType.removed) {
-                _onlineDrivers.remove(id);
-              } else {
-                // Hakikisha lat na lng zipo kabla ya kuzitumia
-                final lat = data['lat'] as num?;
-                final lng = data['lng'] as num?;
-
-                if (lat != null && lng != null) {
-                  _onlineDrivers[id] = {
-                    'id': id,
-                    'lat': lat.toDouble(),
-                    'lng': lng.toDouble(),
-                    'name': data['name'] ?? 'Driver',
-                    'status': data['status'] ?? 'idle',
-                    'vehicleType': data['vehicleType'] ?? 'Car',
-                    'bearing': (data['bearing'] as num?)?.toDouble() ?? 0.0,
-                    'lastUpdate': data['lastUpdate'] != null
-                        ? (data['lastUpdate'] as Timestamp).toDate()
-                        : DateTime.now(),
-                  };
-                }
-              }
-            }
+          _onlineDrivers.clear();
+          for (final location in locations) {
+            final id = location['driver_id'].toString();
+            final driver = driversById[id];
+            if (driver == null || driver['is_online'] != true) continue;
+            final lat = (location['latitude'] as num?)?.toDouble();
+            final lng = (location['longitude'] as num?)?.toDouble();
+            if (lat == null || lng == null) continue;
+            final recordedAt = DateTime.tryParse(location['recorded_at']?.toString() ?? '');
+            if (recordedAt == null || DateTime.now().difference(recordedAt).inSeconds > 90) continue;
+            final profile = profilesById[id];
+            final userData = profile?['user_data'] is Map
+                ? Map<String, dynamic>.from(profile!['user_data'] as Map)
+                : <String, dynamic>{};
+            final availability = driver['availability_status']?.toString() ?? 'idle';
+            _onlineDrivers[id] = {
+              'id': id,
+              'lat': lat,
+              'lng': lng,
+              'name': userData['name'] ?? profile?['full_name'] ?? 'Driver',
+              'status': availability == 'on_trip' ? 'busy' : 'idle',
+              'vehicleType': driver['vehicle_type'] ?? 'Car',
+              'bearing': (location['heading'] as num?)?.toDouble() ?? 0.0,
+              'lastUpdate': recordedAt,
+            };
           }
         });
+      } catch (error) {
+        debugPrint('STA live driver map update failed: $error');
       }
+    }, onError: (Object error) {
+      debugPrint('STA driver location stream failed: $error');
     });
 
-    // 2. Listen to Active Rides (accepted or started)
-    _rideSubscription = FirebaseFirestore.instance
-        .collection('ride_requests')
-        .where('status', whereIn: ['accepted', 'started', 'arrived'])
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          for (var change in snapshot.docChanges) {
-            final data = change.doc.data();
-            final id = change.doc.id;
-            if (change.type == DocumentChangeType.removed) {
-              _activeRides.remove(id);
-            } else if (data != null) {
-              _activeRides[id] = data;
-            }
-          }
-        });
-      }
+    _rideSubscription = _db.from('ride_requests')
+        .stream(primaryKey: ['id']).listen((rows) {
+      if (!mounted) return;
+      setState(() {
+        _activeRides.clear();
+        for (final row in rows) {
+          if (!['accepted', 'driver_arrived', 'in_progress'].contains(row['status'])) continue;
+          _activeRides[row['id'].toString()] = Map<String, dynamic>.from(row);
+        }
+      });
+    }, onError: (Object error) {
+      debugPrint('STA active ride stream failed: $error');
     });
 
-    // 3. Listen to Pending Requests (Heatmap Demand)
-    _demandSubscription = FirebaseFirestore.instance
-        .collection('ride_requests')
-        .where('status', isEqualTo: 'requesting')
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          for (var change in snapshot.docChanges) {
-            final data = change.doc.data();
-            final id = change.doc.id;
-            if (change.type == DocumentChangeType.removed) {
-              _demandPoints.remove(id);
-            } else if (data != null) {
-              _demandPoints[id] = data;
-            }
-          }
-        });
-      }
+    _demandSubscription = _db.from('ride_requests')
+        .stream(primaryKey: ['id']).listen((rows) {
+      if (!mounted) return;
+      setState(() {
+        _demandPoints.clear();
+        for (final row in rows) {
+          if (row['status'] != 'requesting') continue;
+          _demandPoints[row['id'].toString()] = Map<String, dynamic>.from(row);
+        }
+      });
+    }, onError: (Object error) {
+      debugPrint('STA ride demand stream failed: $error');
     });
   }
 
