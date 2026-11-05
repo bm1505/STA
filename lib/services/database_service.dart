@@ -176,9 +176,19 @@ class DatabaseService {
     var databaseConnected = false;
     var aiConfigured = false;
     var trafficConfigured = false;
+    var fleetConfigured = false;
+    var inAppNotificationsConfigured = false;
     try {
       await _db.from('profiles').select('id').limit(1);
       databaseConnected = true;
+    } catch (_) {}
+    try {
+      await _db.from('fleet_vehicles').select('id').limit(1);
+      fleetConfigured = true;
+    } catch (_) {}
+    try {
+      await _db.from('user_notifications').select('id').limit(1);
+      inAppNotificationsConfigured = true;
     } catch (_) {}
     try {
       final response = await _db.functions.invoke('sta-ai', body: {'action': 'health'});
@@ -194,9 +204,10 @@ class DatabaseService {
       'database': databaseConnected,
       'ai': aiConfigured,
       'traffic': trafficConfigured,
+      'in_app_notifications': inAppNotificationsConfigured,
       'push': false,
       'payments': false,
-      'fleet': false,
+      'fleet': fleetConfigured,
     };
   }
 
