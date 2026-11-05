@@ -477,8 +477,10 @@ begin
   ) values (
     p_org_id,p_vehicle_id,trim(p_maintenance_type),p_description,greatest(coalesce(p_cost,0),0),p_odometer_km,p_scheduled_at,auth.uid()
   ) returning id into v_id;
-  update public.fleet_vehicles set status='maintenance',updated_at=now()
-  where id=p_vehicle_id;
+  if p_scheduled_at is null or p_scheduled_at <= now() then
+    update public.fleet_vehicles set status='maintenance',updated_at=now()
+    where id=p_vehicle_id;
+  end if;
   return v_id;
 end;
 $$;
@@ -578,11 +580,16 @@ begin
   update public.fleet_maintenance_records
   set status=p_status,completed_at=case when p_status='completed' then now() else completed_at end
   where id=p_record_id;
-  if p_status in ('completed','cancelled') then
+  if p_status='in_progress' then
+    update public.fleet_vehicles v set status='maintenance',updated_at=now()
+    where v.id=(select vehicle_id from public.fleet_maintenance_records where id=p_record_id);
+  elsif p_status in ('completed','cancelled') then
     update public.fleet_vehicles v
     set status=case when exists(
       select 1 from public.fleet_maintenance_records m
-      where m.vehicle_id=v.id and m.status in ('scheduled','in_progress')
+      where m.vehicle_id=v.id and (
+        m.status='in_progress' or (m.status='scheduled' and (m.scheduled_at is null or m.scheduled_at <= now()))
+      )
     ) then 'maintenance' else 'active' end,
     updated_at=now()
     where v.id=(select vehicle_id from public.fleet_maintenance_records where id=p_record_id);
