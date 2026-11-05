@@ -607,7 +607,7 @@ security definer
 set search_path = public, pg_temp
 as $
 begin
-  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher']) then
+  if not public.sta_is_org_member(p_org_id,array['owner','manager','fleet_manager','dispatcher','viewer']) then
     raise exception 'Fleet monitoring access required' using errcode = '42501';
   end if;
   return query
