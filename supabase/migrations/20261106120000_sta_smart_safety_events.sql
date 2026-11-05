@@ -18,6 +18,20 @@ create index if not exists ride_safety_events_created_idx
 create index if not exists ride_safety_events_user_status_idx
   on public.ride_safety_events(user_id,status);
 
+do $
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'ride_safety_events'
+     ) then
+    alter publication supabase_realtime add table public.ride_safety_events;
+  end if;
+end;
+$;
+
 alter table public.ride_safety_events enable row level security;
 drop policy if exists ride_safety_events_owner_select on public.ride_safety_events;
 create policy ride_safety_events_owner_select on public.ride_safety_events
