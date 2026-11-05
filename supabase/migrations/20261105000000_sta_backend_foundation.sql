@@ -276,3 +276,33 @@ create policy "payments_select_owner" on public.payments
 -- No client policies are intentionally provided for wallet writes, payment writes,
 -- ride status transitions, or trip creation. Those must be implemented through
 -- validated server-side RPC/Edge Functions after mapping the complete current rules.
+
+
+create table if not exists public.notification_broadcasts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  target_group text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'sent', 'failed')),
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+alter table public.notification_broadcasts enable row level security;
+create policy "notification_broadcasts_admin_insert"
+  on public.notification_broadcasts for insert to authenticated
+  with check (
+    created_by = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin'
+    )
+  );
+create policy "notification_broadcasts_admin_select"
+  on public.notification_broadcasts for select to authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin'
+    )
+  );
