@@ -1279,11 +1279,13 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                             setState(() => _isRequesting = false);
                           }),
                         if (isArrived)
-                          _buildDriverActionBtn(
-                              LocalizationService.translate('confirm', lang),
-                              Colors.green.withValues(alpha: 0.8), () async {
-                            await rideProvider.startRide();
-                          }),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              'Driver has arrived. The driver will start the trip.',
+                              style: GoogleFonts.poppins(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
                         if (isInProgress)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1714,27 +1716,6 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
                       final rideId = ride?.id;
                       final driverId = ride?.driverId;
 
-                      if (ride != null) {
-                        // Hakikisha safari inarekodiwa kwenye Firestore kabla ya kuifuta
-                        await DatabaseService.instance.recordTrip({
-                          'id': ride.id,
-                          'riderId': auth.currentUser?.id,
-                          'riderName': auth.currentUser?.name,
-                          'driverId': ride.driverId,
-                          'driverName': rideProvider.driverInfo?.fullName ??
-                              LocalizationService.translate('sta_driver', lang),
-                          'pickup': ride.pickupLocation.address,
-                          'dropoff': ride.dropoffLocation.address,
-                          'fare': ride.fare > 0 ? ride.fare : _calculatedFare,
-                          'distance':
-                              ride.distance > 0 ? ride.distance : _distance,
-                          'status': 'completed',
-                          'payment_method': _selectedPaymentMethod,
-                          'timestamp': DateTime.now().toUtc().toIso8601String(),
-                          'vehicleType': ride.vehicleType,
-                        });
-                      }
-
                       if (rideId != null && driverId != null) {
                         await rideProvider.submitRating(
                           rideId: rideId,
@@ -1853,72 +1834,36 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
           style: GoogleFonts.poppins(
               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
       subtitle: Text(
-          LocalizationService.translate('simulated_stk_prefix', lang)
-              .replaceFirst('{prefix}', prefix),
+          'Mobile money payment is not configured yet',
           style: const TextStyle(color: Colors.white70, fontSize: 10)),
       trailing:
           const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
       onTap: () {
         Navigator.pop(context);
-        _startSimulatedSTK(name);
+        _requestMobileMoneyPayment(name);
       },
     );
   }
 
-  void _startSimulatedSTK(String provider) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final lang = auth.language;
-    final ride = Provider.of<RideProvider>(context, listen: false).currentRide;
-
+  void _requestMobileMoneyPayment(String provider) {
+    final lang = Provider.of<AuthProvider>(context, listen: false).language;
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            CircularProgressIndicator(color: AppTheme.primaryGold),
-            const SizedBox(height: 20),
-            Text(LocalizationService.translate('wait_a_moment', lang),
-                style: GoogleFonts.poppins(
-                    color: Colors.white, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 10),
-            Text(
-              LocalizationService.translate('stk_init_msg', lang)
-                  .replaceFirst('{provider}', provider),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
+        title: Text('Mobile money unavailable', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(
+          '$provider payment is not connected to a verified payment gateway yet. No payment request has been sent and no money has been charged. Please use Cash for this ride.',
+          style: const TextStyle(color: Colors.white70),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(LocalizationService.translate('ok', lang)),
+          ),
+        ],
       ),
     );
-
-    // Banza mchakato wa kweli wa malipo (Hii itatuma STK Push via Cloud Function)
-    if (ride != null) {
-      PaymentService.initiateCheckout(
-        phone: auth.currentUser?.phoneNumber ?? '',
-        amount: ride.fare > 0 ? ride.fare : _calculatedFare,
-        rideId: ride.id,
-      );
-    }
-
-    // Simulate delay for UI feedback
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) {
-        Navigator.pop(context); // Close dialog
-        setState(() => _selectedPaymentMethod = provider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(LocalizationService.translate('stk_sent_msg', lang)),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    });
   }
 
   Widget _buildSearchingPanel(
