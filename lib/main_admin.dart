@@ -15,11 +15,13 @@ import 'screens/admin_live_trips_screen.dart';
 import 'screens/chat_screen.dart';
 import 'utils/theme.dart';
 import 'models/user.dart';
+import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    await StaSupabase.initialize();
     if (kIsWeb) {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
