@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +13,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/driver_ride_provider.dart';
 import '../services/route_service.dart';
+import '../services/database_service.dart';
 import '../services/localization_service.dart';
 import '../services/call_service.dart';
 import 'call_screen.dart';
@@ -690,19 +690,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black12),
             boxShadow: [BoxShadow(color: isDark ? Colors.black54 : Colors.black12, blurRadius: 15, offset: const Offset(0, 5))],
           ),
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('trips')
-                .where('driverId', isEqualTo: auth.currentUser?.id)
-                .where('status', whereIn: ['completed', 'paid', 'completed_paid', 'COMPLETED', 'PAID', 'COMPLETED_PAID'])
-                .snapshots(),
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: auth.currentUser?.id == null
+                ? const Stream<List<Map<String, dynamic>>>.empty()
+                : DatabaseService.instance.getDriverTripsStream(auth.currentUser!.id),
             builder: (context, snapshot) {
               double totalEarnings = 0;
               int tripCount = 0;
               if (snapshot.hasData) {
-                tripCount = snapshot.data!.docs.length;
-                for (var doc in snapshot.data!.docs) {
-                  final data = doc.data() as Map<String, dynamic>;
+                tripCount = snapshot.data!.length;
+                for (final data in snapshot.data!) {
                   totalEarnings += (data['fare'] as num?)?.toDouble() ?? 0.0;
                 }
               }
