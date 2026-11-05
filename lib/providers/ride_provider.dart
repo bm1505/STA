@@ -180,7 +180,7 @@ class RideProvider extends ChangeNotifier {
   Future<void> cancelRide() async {
     if (_currentRide == null) return;
     try {
-      await _db.from('ride_requests').update({'status': 'cancelled', 'cancelled_at': DateTime.now().toUtc().toIso8601String()}).eq('id', _currentRide!.id);
+      await _db.rpc('sta_set_ride_status', params: {'p_ride_id': _currentRide!.id, 'p_status': 'cancelled'});
       clearRide();
     } catch (e) { debugPrint('Cancel ride failed: $e'); }
   }
@@ -230,7 +230,7 @@ class RideProvider extends ChangeNotifier {
 
   Future<void> updatePaymentStatus(String status) async {
     if (_currentRide == null) return;
-    await _db.from('ride_requests').update({'payment_status': status}).eq('id', _currentRide!.id);
+    await _db.rpc('sta_set_ride_status', params: {'p_ride_id': _currentRide!.id, 'p_status': 'completed', 'p_payment_status': status});
   }
 
   Future<void> submitRating({
