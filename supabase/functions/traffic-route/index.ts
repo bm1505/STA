@@ -18,11 +18,17 @@ serve(async (req) => {
     return Response.json({ error: "Method not allowed" }, { status: 405, headers: corsHeaders });
   }
   try {
+    const body = await req.json();
+    if (body?.action === "health") {
+      return Response.json(
+        { configured: Boolean(Deno.env.get("GOOGLE_ROUTES_API_KEY")) },
+        { headers: corsHeaders },
+      );
+    }
     const apiKey = Deno.env.get("GOOGLE_ROUTES_API_KEY");
     if (!apiKey) {
       return Response.json({ error: "Traffic-aware routing is not configured" }, { status: 503, headers: corsHeaders });
     }
-    const body = await req.json();
     const origin = body?.origin ?? {};
     const destination = body?.destination ?? {};
     const originLat = coordinate(origin.latitude, -90, 90);
