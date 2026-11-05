@@ -122,7 +122,7 @@ stable
 security definer
 set search_path = public, pg_temp
 as $$
-  select exists (
+  select public.sta_is_active_admin() or exists (
     select 1 from public.organization_members m
     where m.organization_id = p_org_id and m.user_id = auth.uid()
       and m.status = 'active'
@@ -313,12 +313,13 @@ security definer
 set search_path = public, pg_temp
 as $$
   select o.id,o.name,o.organization_type,
-    case when o.owner_user_id = auth.uid() then 'owner' else m.role end,
+    case when public.sta_is_active_admin() then 'admin'
+         when o.owner_user_id = auth.uid() then 'owner' else m.role end,
     o.created_at
   from public.transport_organizations o
   left join public.organization_members m
     on m.organization_id = o.id and m.user_id = auth.uid() and m.status = 'active'
-  where o.owner_user_id = auth.uid() or m.user_id = auth.uid()
+  where o.owner_user_id = auth.uid() or m.user_id = auth.uid() or public.sta_is_active_admin()
   order by o.created_at desc;
 $$;
 revoke all on function public.sta_list_my_organizations() from public;
