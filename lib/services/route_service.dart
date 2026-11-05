@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
@@ -42,8 +43,10 @@ class RouteService {
       final dLat = double.tryParse(dropoffLat) ?? 0.0;
       final dLng = double.tryParse(dropoffLng) ?? 0.0;
 
-      if (!pLat.isFinite || !pLng.isFinite || !dLat.isFinite || !dLng.isFinite) {
-        throw Exception('Invalid coordinates: Non-finite values');
+      if (!pLat.isFinite || !pLng.isFinite || !dLat.isFinite || !dLng.isFinite ||
+          pLat < -90 || pLat > 90 || dLat < -90 || dLat > 90 ||
+          pLng < -180 || pLng > 180 || dLng < -180 || dLng > 180) {
+        throw ArgumentError('Invalid pickup or destination coordinates.');
       }
 
       final url =
@@ -52,8 +55,12 @@ class RouteService {
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final route = data['routes'][0];
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final routes = data['routes'];
+        if (data['code'] != 'Ok' || routes is! List || routes.isEmpty) {
+          throw StateError('No valid route was returned by the routing service.');
+        }
+        final route = routes.first as Map<String, dynamic>;
 
         final distanceMeter = route['distance'].toDouble();
         final durationSeconds = route['duration'].toDouble();
@@ -93,18 +100,10 @@ class RouteService {
         throw Exception('Failed to load route');
       }
     } catch (e) {
-      print('Route Error: $e');
-      // Fallback: Ikishindwa, tumia hesabu ya kawaida ya mstari
-      return RouteInfo(
-        distance: 5.0,
-        duration: 15,
-        trafficMultiplier: 1.0,
-        polyline: [
-          LatLng(double.parse(pickupLat), double.parse(pickupLng)),
-          LatLng(double.parse(dropoffLat), double.parse(dropoffLng)),
-        ],
-        steps: [],
-      );
+      // Never fabricate distance, duration, or a straight-line route: those
+      // values can flow into fare estimates and mislead riders and drivers.
+      debugPrint('Route calculation failed: $e');
+      rethrow;
     }
   }
 }
