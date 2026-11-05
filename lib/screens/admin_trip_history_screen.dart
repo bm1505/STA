@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/database_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/theme.dart';
 import 'package:intl/intl.dart';
@@ -26,18 +26,15 @@ class _AdminTripHistoryScreenState extends State<AdminTripHistoryScreen> {
   Future<void> _fetchTrips() async {
     setState(() => _isLoading = true);
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('trips')
-          .orderBy('timestamp', descending: true)
-          .get();
-
+      final trips = await DatabaseService.instance.getAllTrips(adminView: true);
+      trips.sort((left, right) {
+        final leftDate = DateTime.tryParse(left['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final rightDate = DateTime.tryParse(right['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return rightDate.compareTo(leftDate);
+      });
       if (mounted) {
         setState(() {
-          _allTrips = snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return data;
-          }).toList();
+          _allTrips = trips;
           _isLoading = false;
         });
       }
@@ -59,9 +56,9 @@ class _AdminTripHistoryScreenState extends State<AdminTripHistoryScreen> {
         final dynamic ts = trip['timestamp'];
         if (ts != null) {
           DateTime date;
-          if (ts is Timestamp) date = ts.toDate();
-          else if (ts is String) date = DateTime.tryParse(ts) ?? DateTime.now();
-          else date = DateTime.now();
+          if (ts is DateTime) date = ts;
+          else if (ts is String) date = DateTime.tryParse(ts) ?? DateTime.fromMillisecondsSinceEpoch(0);
+          else date = DateTime.fromMillisecondsSinceEpoch(0);
 
           final now = DateTime.now();
           if (_selectedTimeFrame == 'TODAY') {
