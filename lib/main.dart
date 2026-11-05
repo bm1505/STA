@@ -28,6 +28,7 @@ import 'screens/receipt_screen.dart';
 import 'screens/location_picker_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/support_assistant_screen.dart';
+import 'screens/fleet_management_screen.dart';
 import 'utils/theme.dart';
 import 'models/user.dart';
 
@@ -120,6 +121,10 @@ class MyApp extends StatelessWidget {
               if (settings.name == '/support-ai') {
                 return MaterialPageRoute(
                     builder: (context) => const SupportAssistantScreen());
+              }
+              if (settings.name == '/fleet') {
+                return MaterialPageRoute(
+                    builder: (context) => const FleetManagementScreen());
               }
               if (settings.name == '/admin-home') {
                 return MaterialPageRoute(
