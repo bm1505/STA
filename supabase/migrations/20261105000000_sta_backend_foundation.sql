@@ -149,7 +149,7 @@ create index if not exists trips_driver_created_idx on public.trips (driver_id, 
 create table if not exists public.wallets (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   currency text not null default 'TZS',
-  balance numeric(14,2) not null default 0 check (balance >= 0),
+  balance numeric(14,2) not null default 0,
   updated_at timestamptz not null default now()
 );
 
@@ -436,3 +436,145 @@ language sql stable security definer set search_path = public, pg_temp as $$
 $$;
 revoke all on function public.sta_nearby_drivers(double precision,double precision,text,text) from public;
 grant execute on function public.sta_nearby_drivers(double precision,double precision,text,text) to authenticated;
+
+
+-- Server-side wallet and trip accounting. Client apps cannot write balances directly.
+create or replace function public.sta_record_trip(p_trip_data jsonb)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_ride_id uuid := (p_trip_data ->> 'id')::uuid;
+  v_driver_id uuid := (p_trip_data ->> 'driverId')::uuid;
+  v_ride public.ride_requests;
+  v_fare numeric(14,2);
+  v_commission numeric(14,2);
+  v_driver_share numeric(14,2);
+  v_method text;
+begin
+  if auth.uid() is distinct from v_driver_id
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Not authorized' using errcode = '42501';
+  end if;
+  select * into v_ride from public.ride_requests where id = v_ride_id for update;
+  if not found or v_ride.driver_id is distinct from v_driver_id then
+    raise exception 'Ride not found or driver mismatch';
+  end if;
+  if exists (select 1 from public.trips where ride_request_id = v_ride_id) then
+    return;
+  end if;
+  v_fare := coalesce((p_trip_data ->> 'fare')::numeric, v_ride.final_fare, v_ride.estimated_fare, 0);
+  if v_fare <= 0 then raise exception 'Invalid trip fare'; end if;
+  v_commission := round(v_fare * 0.20, 2);
+  v_driver_share := round(v_fare * 0.80, 2);
+  v_method := lower(coalesce(p_trip_data ->> 'paymentMethod', 'cash'));
+
+  insert into public.trips (
+    ride_request_id, rider_id, driver_id, completed_at,
+    distance_meters, duration_seconds, fare
+  ) values (
+    v_ride_id, v_ride.rider_id, v_driver_id, now(),
+    v_ride.distance_meters, v_ride.duration_seconds, v_fare
+  );
+
+  insert into public.wallets(user_id, balance)
+  values (v_driver_id, case when v_method = 'cash' then -v_commission else v_driver_share end)
+  on conflict (user_id) do update
+    set balance = public.wallets.balance +
+      case when v_method = 'cash' then -v_commission else v_driver_share end,
+      updated_at = now();
+
+  insert into public.wallet_transactions(
+    user_id, amount, direction, transaction_type, status, reference, description
+  ) values (
+    v_driver_id,
+    case when v_method = 'cash' then v_commission else v_driver_share end,
+    case when v_method = 'cash' then 'debit' else 'credit' end,
+    case when v_method = 'cash' then 'commission_deduction' else 'ride_earning' end,
+    'completed', v_ride_id::text,
+    case when v_method = 'cash' then 'Trip commission (cash)' else 'Trip earnings (digital)' end
+  );
+end;
+$$;
+revoke all on function public.sta_record_trip(jsonb) from public;
+grant execute on function public.sta_record_trip(jsonb) to authenticated;
+
+create or replace function public.sta_adjust_wallet(
+  p_user_id uuid, p_amount numeric, p_type text
+) returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Admin access required' using errcode = '42501';
+  end if;
+  if p_amount = 0 then raise exception 'Amount cannot be zero'; end if;
+  insert into public.wallets(user_id, balance) values (p_user_id, p_amount)
+  on conflict (user_id) do update set balance = public.wallets.balance + p_amount, updated_at = now();
+  insert into public.wallet_transactions(user_id, amount, direction, transaction_type, status, description)
+  values (p_user_id, abs(p_amount), case when p_amount > 0 then 'credit' else 'debit' end, p_type, 'completed', 'Admin wallet adjustment');
+end;
+$$;
+revoke all on function public.sta_adjust_wallet(uuid,numeric,text) from public;
+grant execute on function public.sta_adjust_wallet(uuid,numeric,text) to authenticated;
+
+create or replace function public.sta_process_topup(
+  p_payment_id uuid, p_user_id uuid, p_amount numeric
+) returns void language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_payment public.payments;
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Admin access required' using errcode = '42501';
+  end if;
+  select * into v_payment from public.payments where id = p_payment_id and user_id = p_user_id for update;
+  if not found or v_payment.status <> 'pending' or v_payment.amount <> p_amount then
+    raise exception 'Payment cannot be approved';
+  end if;
+  update public.payments set status = 'completed', updated_at = now() where id = p_payment_id;
+  insert into public.wallets(user_id, balance) values (p_user_id, p_amount)
+  on conflict (user_id) do update set balance = public.wallets.balance + p_amount, updated_at = now();
+  insert into public.wallet_transactions(user_id, amount, direction, transaction_type, status, reference, description)
+  values (p_user_id, p_amount, 'credit', 'topup', 'completed', p_payment_id::text, 'Wallet top-up');
+end;
+$$;
+revoke all on function public.sta_process_topup(uuid,uuid,numeric) from public;
+grant execute on function public.sta_process_topup(uuid,uuid,numeric) to authenticated;
+
+create or replace function public.sta_manual_topup(p_user_id uuid, p_amount numeric)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Admin access required' using errcode = '42501';
+  end if;
+  if p_amount <= 0 then raise exception 'Invalid top-up amount'; end if;
+  insert into public.wallets(user_id, balance) values (p_user_id, p_amount)
+  on conflict (user_id) do update set balance = public.wallets.balance + p_amount, updated_at = now();
+  insert into public.wallet_transactions(user_id, amount, direction, transaction_type, status, description)
+  values (p_user_id, p_amount, 'credit', 'manual_topup', 'completed', 'Manual wallet top-up');
+end;
+$$;
+revoke all on function public.sta_manual_topup(uuid,numeric) from public;
+grant execute on function public.sta_manual_topup(uuid,numeric) to authenticated;
+
+create or replace function public.sta_process_withdrawal(
+  p_withdrawal_id uuid, p_user_id uuid, p_amount numeric, p_approve boolean
+) returns void language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_request public.withdrawal_requests;
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Admin access required' using errcode = '42501';
+  end if;
+  select * into v_request from public.withdrawal_requests
+    where id = p_withdrawal_id and user_id = p_user_id for update;
+  if not found or v_request.status <> 'pending' then raise exception 'Withdrawal is not pending'; end if;
+  if p_approve then
+    if v_request.amount <> p_amount then raise exception 'Withdrawal amount mismatch'; end if;
+    update public.wallets set balance = balance - p_amount, updated_at = now()
+      where user_id = p_user_id and balance >= p_amount;
+    if not found then raise exception 'Insufficient wallet balance'; end if;
+    insert into public.wallet_transactions(user_id, amount, direction, transaction_type, status, reference, description)
+      values (p_user_id, p_amount, 'debit', 'withdrawal', 'completed', p_withdrawal_id::text, 'Withdrawal paid');
+    update public.withdrawal_requests set status = 'completed', processed_at = now() where id = p_withdrawal_id;
+  else
+    update public.withdrawal_requests set status = 'rejected', processed_at = now() where id = p_withdrawal_id;
+  end if;
+end;
+$$;
+revoke all on function public.sta_process_withdrawal(uuid,uuid,numeric,boolean) from public;
+grant execute on function public.sta_process_withdrawal(uuid,uuid,numeric,boolean) to authenticated;
