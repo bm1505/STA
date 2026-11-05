@@ -190,7 +190,26 @@ class DatabaseService {
 
   Stream<List<UserModel>> getDriversStream() =>
       _db.from('profiles').stream(primaryKey: ['id']).eq('role', 'driver')
-          .map((rows) => rows.map(_userFromRow).toList());
+          .asyncMap((rows) async {
+        final users = rows.map(_userFromRow).toList();
+        final ids = rows.map((r) => r['id'].toString()).toList();
+        if (ids.isEmpty) return users;
+        final driverRows = await _db.from('driver_profiles')
+            .select('user_id,verification_status,is_online,total_rides')
+            .inFilter('user_id', ids);
+        final byId = {for (final row in driverRows) row['user_id'].toString(): row};
+        return users.map((user) {
+          final driver = byId[user.id];
+          if (driver == null) return user;
+          return UserModel.fromJson({
+            ...user.toJson(),
+            'isOnline': driver['is_online'] == true,
+            'totalRides': driver['total_rides'] ?? user.totalRides,
+            'verificationStatus': driver['verification_status'] ?? user.verificationStatus.name,
+            'isVerified': driver['verification_status'] == 'verified',
+          });
+        }).toList();
+      });
 
   UserModel _userFromRow(Map<String, dynamic> row) {
     final data = row['user_data'] is Map
