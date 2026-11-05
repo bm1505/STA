@@ -251,8 +251,9 @@ class _WalletScreenState extends State<WalletScreen> {
             final tx = snapshot.data![index];
             return _buildTransactionItem(
               title: tx['description'] ?? 'Transaction',
-              subtitle: tx['type'] ?? 'payment',
-              amount: (tx['amount'] as num?)?.toDouble() ?? 0.0,
+              subtitle: tx['transaction_type'] ?? 'payment',
+              amount: (tx['direction'] == 'debit' ? -1 : 1) *
+                  ((tx['amount'] as num?)?.toDouble() ?? 0.0),
               date: tx['created_at'] != null
                 ? DateFormat('MMM dd, hh:mm a').format(DateTime.parse(tx['created_at'].toString()).toLocal())
                 : 'Recent',
