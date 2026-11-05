@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show File;
 import 'dart:typed_data';
+import 'package:intl/intl.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -407,6 +408,27 @@ class DatabaseService {
         : <String, dynamic>{};
     data['profileEditStatus'] = 'allowed';
     await _db.from('profiles').update({'user_data': data}).eq('id', driverId);
+  }
+
+  Stream<String> getAdminMetricStream(String metric) {
+    switch (metric) {
+      case 'riders':
+        return _db.from('profiles').stream(primaryKey: ['id'])
+            .map((rows) => rows.where((row) => row['role'] == 'rider').length.toString());
+      case 'trips':
+        return _db.from('ride_requests').stream(primaryKey: ['id'])
+            .map((rows) => rows.where((row) =>
+                ['accepted', 'driver_arrived', 'in_progress'].contains(row['status'])).length.toString());
+      case 'wallets':
+        return _db.from('wallets').stream(primaryKey: ['user_id'])
+            .map((rows) => NumberFormat('#,##0').format(rows.fold<double>(
+              0, (total, row) => total + ((row['balance'] as num?)?.toDouble() ?? 0))));
+      case 'sos_alerts':
+        return _db.from('sos_alerts').stream(primaryKey: ['id'])
+            .map((rows) => rows.where((row) => row['status'] == 'active').length.toString());
+      default:
+        throw ArgumentError('Unknown admin metric');
+    }
   }
 
   Stream<List<Map<String, dynamic>>> getAdminTableStream(String tableName) {
