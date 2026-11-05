@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SafetyScreen extends StatelessWidget {
   const SafetyScreen({super.key});
@@ -18,6 +20,53 @@ class SafetyScreen extends StatelessWidget {
       await launchUrl(launchUri);
     }
   }
+
+  Future<void> _sendSos() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) throw StateError('Please sign in before sending SOS.');
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw StateError('Turn on location services to share your emergency location.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw StateError('Location permission is required to send your SOS location.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      await client.from('sos_alerts').insert({
+        'user_id': user.id,
+        'role': Provider.of<AuthProvider>(context, listen: false).currentUser?.role.name ?? 'rider',
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'status': 'active',
+      });
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(
+        content: Text('SOS sent with your current location. STA support has been alerted.'),
+        backgroundColor: Colors.red,
+      ));
+      await _makeEmergencyCall();
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('SOS could not be sent: $error'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +134,7 @@ class SafetyScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _makeEmergencyCall,
+                      onPressed: _sendSos,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,
