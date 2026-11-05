@@ -580,8 +580,10 @@ class _RideRequestScreenState extends State<RideRequestScreen> {
         setState(() {
           if (isPickup) {
             _pickupAddress = address;
-            _pickupRegion = reverseSearchResult.address?['state']?.toString() ?? "Arusha";
-            _pickupCity = reverseSearchResult.address?['city']?.toString() ?? "Arusha";
+            _pickupRegion = reverseSearchResult.address?['state']?.toString() ?? "";
+            _pickupCity = reverseSearchResult.address?['city']?.toString() ??
+                reverseSearchResult.address?['town']?.toString() ??
+                reverseSearchResult.address?['village']?.toString() ?? "";
           } else {
             _dropoffAddress = address;
           }
