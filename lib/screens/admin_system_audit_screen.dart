@@ -863,15 +863,24 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("API Traffic & Analytics", style: GoogleFonts.inter(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 30),
-        Expanded(
-          child: ListView(
-            controller: _apiScrollController,
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _apiLogItem("GET /drivers/live", "200", "45ms", "Success"),
-              _apiLogItem("POST /ride/request", "201", "120ms", "Success"),
-              _apiLogItem("PATCH /payout/confirm", "200", "85ms", "Success"),
-              _apiLogItem("GET /system/config", "304", "12ms", "Cached"),
+              Icon(Icons.info_outline, color: Colors.orangeAccent, size: 28),
+              SizedBox(height: 12),
+              Text(
+                'Request-level API telemetry is not connected to this dashboard yet. No sample or fabricated request logs are displayed.',
+                style: TextStyle(color: Colors.white70, height: 1.5),
+              ),
             ],
           ),
         ),
@@ -879,24 +888,6 @@ class _AdminSystemAuditScreenState extends State<AdminSystemAuditScreen> {
     );
   }
 
-  Widget _apiLogItem(String endpoint, String code, String latency, String status) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.01), borderRadius: BorderRadius.circular(15)),
-      child: Row(
-        children: [
-          Text(endpoint, style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 13)),
-          const Spacer(),
-          Text(code, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-          const SizedBox(width: 30),
-          Text(latency, style: const TextStyle(color: Colors.white24, fontSize: 12)),
-          const SizedBox(width: 30),
-          Text(status, style: const TextStyle(color: AppTheme.adminPrimary, fontWeight: FontWeight.bold, fontSize: 10)),
-        ],
-      ),
-    );
-  }
 
   Widget _dateRangePicker() {
     return Container(
