@@ -72,7 +72,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         _db.from('fleet_maintenance_records').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.from('transport_contracts').select().eq('organization_id', id).order('created_at', ascending: false).limit(8),
         _db.rpc('sta_list_org_members', params: {'p_org_id': id}),
-        _db.rpc('sta_org_live_locations', params: {'p_org_id': id}),
+        _safeLoadLiveDrivers(id),
         _db.rpc('sta_list_org_assignments', params: {'p_org_id': id}),
       ]);
       final metricRows = results[0] as List;
@@ -98,6 +98,16 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
     } catch (error) {
       if (mounted) setState(() => _busy = false);
       _showMessage('Could not refresh fleet data: $error');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _safeLoadLiveDrivers(String organizationId) async {
+    try {
+      final result = await _db.rpc('sta_org_live_locations', params: {'p_org_id': organizationId});
+      return (result as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+    } catch (_) {
+      // Finance and viewer roles may not have access to driver location data.
+      return [];
     }
   }
 
