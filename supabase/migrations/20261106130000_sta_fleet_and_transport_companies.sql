@@ -518,6 +518,10 @@ begin
   if not public.sta_is_org_member(v_assignment.organization_id,array['owner','manager','fleet_manager']) then
     raise exception 'Fleet manager access required' using errcode = '42501';
   end if;
+  if exists(
+    select 1 from public.ride_requests
+    where driver_id=v_assignment.driver_id and status in ('accepted','driver_arrived','in_progress')
+  ) then raise exception 'Driver must finish the active ride before unassignment'; end if;
   update public.fleet_vehicle_assignments
   set status='ended',unassigned_at=now()
   where id=p_assignment_id;
