@@ -410,6 +410,31 @@ class DatabaseService {
     await _db.from('profiles').update({'user_data': data}).eq('id', driverId);
   }
 
+  Future<void> requestDriverProfileEdit(String driverId) async {
+    if (_db.auth.currentUser?.id != driverId) {
+      throw StateError('You can only request changes to your own profile.');
+    }
+    final row = await _db.from('profiles').select('user_data').eq('id', driverId).single();
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
+    data['profileEditStatus'] = 'requested';
+    await _db.from('profiles').update({'user_data': data}).eq('id', driverId);
+  }
+
+  Future<void> submitDriverProfileEdit(String driverId, Map<String, dynamic> updates) async {
+    if (_db.auth.currentUser?.id != driverId) {
+      throw StateError('You can only submit changes to your own profile.');
+    }
+    final row = await _db.from('profiles').select('user_data').eq('id', driverId).single();
+    final data = row['user_data'] is Map
+        ? Map<String, dynamic>.from(row['user_data'])
+        : <String, dynamic>{};
+    data['pendingUpdates'] = updates;
+    data['profileEditStatus'] = 'submitted';
+    await _db.from('profiles').update({'user_data': data}).eq('id', driverId);
+  }
+
   Stream<String> getAdminMetricStream(String metric) {
     switch (metric) {
       case 'riders':
@@ -559,7 +584,11 @@ class DatabaseService {
   Future<void> deleteRecord(String table, String id) async {
     const allowed = {'notification_broadcasts', 'app_settings'};
     if (!allowed.contains(table)) throw ArgumentError('Operation not allowed');
-    await _db.from(table).delete().eq('id', id);
+    if (table == 'app_settings') {
+      await _db.from(table).delete().eq('key', id);
+    } else {
+      await _db.from(table).delete().eq('id', id);
+    }
   }
 
   Future<void> insertOrUpdateRecord(String table, String id, Map<String, dynamic> data) async {
