@@ -1,13 +1,11 @@
-import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/user.dart';
-import '../services/database_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
@@ -15,11 +13,11 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
   String _language = 'English';
   ThemeMode _themeMode = ThemeMode.dark;
-  StreamSubscription<DocumentSnapshot>? _userSubscription;
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
+  StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _profileSubscription;
   bool _isManualLogin = false;
+
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
@@ -30,44 +28,111 @@ class AuthProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   AuthProvider() {
-    _initGoogleSignIn();
     _loadSettings();
-    _auth.authStateChanges().listen((User? user) {
-      if (user != null && _currentUser == null && !_isManualLogin) {
-        _handleFirebaseUser(user);
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
+      final user = event.session?.user ?? _supabase.auth.currentUser;
+      if (user == null) {
+        _currentUser = null;
+        _profileSubscription?.cancel();
+        notifyListeners();
+      } else if (_currentUser == null) {
+        _loadSupabaseProfile(user.id);
       }
     });
   }
 
-  Future<void> _initGoogleSignIn() async {
-    if (!kIsWeb) {
-      try {
-        await GoogleSignIn.instance.initialize();
-      } catch (e) {
-        debugPrint("GoogleSignIn Init Error: $e");
+  Future<void> checkAuthStatus() async {
+    _setLoading(true);
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        await _loadSupabaseProfile(user.id);
+      } else {
+        _currentUser = null;
       }
+    } catch (e) {
+      _error = 'Imeshindikana kuthibitisha akaunti: $e';
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<void> checkAuthStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userData = prefs.getString('user_data');
-    if (userData != null) {
-      try {
-        _currentUser = UserModel.fromJson(json.decode(userData));
-        _startUserListener(_currentUser!.id, _currentUser!.role);
-        notifyListeners();
-      } catch (e) {
-        debugPrint("Error loading user data: $e");
+  Future<void> _loadSupabaseProfile(String userId) async {
+    try {
+      final row = await _supabase
+          .from('profiles')
+          .select('user_data, role')
+          .eq('id', userId)
+          .maybeSingle();
+      if (row == null) {
+        _currentUser = null;
+        return;
       }
+      final raw = row['user_data'];
+      final data = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+      data['id'] = userId;
+      data['role'] = row['role'] ?? data['role'] ?? 'rider';
+      _currentUser = UserModel.fromJson(data);
+      await _saveLocalDisplaySession(_currentUser!);
+      _listenToSupabaseProfile(userId);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Imeshindikana kupata taarifa za akaunti: $e';
+      notifyListeners();
     }
+  }
+
+  void _listenToSupabaseProfile(String userId) {
+    _profileSubscription?.cancel();
+    _profileSubscription = _supabase
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', userId)
+        .listen((rows) {
+      if (rows.isEmpty) return;
+      final row = rows.first;
+      final raw = row['user_data'];
+      final data = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+      data['id'] = userId;
+      data['role'] = row['role'] ?? data['role'] ?? 'rider';
+      _currentUser = UserModel.fromJson(data);
+      _saveLocalDisplaySession(_currentUser!);
+      notifyListeners();
+    }, onError: (Object error) {
+      debugPrint('STA profile realtime error: $error');
+    });
+  }
+
+  Future<void> _saveLocalDisplaySession(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', json.encode(user.toJson()));
+  }
+
+  Future<void> _saveProfile(UserModel user) async {
+    await _supabase.from('profiles').upsert({
+      'id': user.id,
+      'role': user.role.name,
+      'full_name': user.name,
+      'email': user.email,
+      'phone_number': user.phoneNumber,
+      'user_data': user.toJson(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    _currentUser = user;
+    await _saveLocalDisplaySession(user);
+    notifyListeners();
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _language = prefs.getString('language') ?? 'English';
-    final isDark = prefs.getBool('isDarkMode') ?? true;
-    _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    _themeMode = (prefs.getBool('isDarkMode') ?? true)
+        ? ThemeMode.dark
+        : ThemeMode.light;
     notifyListeners();
   }
 
@@ -85,105 +150,33 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _handleFirebaseUser(User user, {UserRole? targetRole}) async {
-    try {
-      UserModel? existingUser = await DatabaseService.instance
-          .getUser(user.email ?? user.uid, expectedRole: targetRole);
-
-      if (existingUser != null) {
-        if (targetRole == UserRole.driver &&
-            existingUser.role == UserRole.rider) {
-          UserModel? driverProfile = await DatabaseService.instance
-              .getUser(user.email ?? user.uid, expectedRole: UserRole.driver);
-
-          if (driverProfile != null) {
-            existingUser = driverProfile;
-          } else {
-            existingUser = existingUser.copyWith(
-                role: UserRole.driver,
-                verificationStatus: VerificationStatus.pending,
-                isVerified: false);
-            await DatabaseService.instance.saveUser(existingUser);
-          }
-        }
-        _currentUser = existingUser;
-        await _saveSession(_currentUser!, syncWithServer: false);
-        _startUserListener(_currentUser!.id, _currentUser!.role);
-      } else {
-        // Ikiwa user hayupo kabisa, na hakuna error ya mtandao
-        // (Hapa tunatengeneza mpya TU ikiwa tuna uhakika hayupo)
-        _currentUser = UserModel(
-          id: user.uid,
-          name: user.displayName ?? 'User',
-          email: user.email ?? '',
-          phoneNumber: user.phoneNumber ?? '',
-          role: targetRole ?? UserRole.rider,
-          profileImageUrl: user.photoURL,
-          isVerified: true,
-          verificationStatus: VerificationStatus.verified,
-          hasAcceptedTerms: false,
-          createdAt: DateTime.now(),
-        );
-        await DatabaseService.instance.saveUser(_currentUser!);
-        await _saveSession(_currentUser!, syncWithServer: false);
-        _startUserListener(_currentUser!.id, _currentUser!.role);
-      }
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Auth Error during Firebase Sync: $e");
-      _error = "Hitilafu ya mtandao: Imeshindikana kupata taarifa zako.";
-      await logout(); // Hakikisha anarudi login ikiwa kuna error
-    }
-  }
-
-  void _startUserListener(String uid, UserRole role) {
-    _userSubscription?.cancel();
-    String collection = role == UserRole.driver ? 'drivers' : 'riders';
-    _userSubscription = FirebaseFirestore.instance
-        .collection(collection)
-        .doc(uid)
-        .snapshots()
-        .listen((snapshot) {
-      if (snapshot.exists && snapshot.data() != null) {
-        Map<String, dynamic> data = snapshot.data()!;
-        data['id'] = snapshot.id;
-        final updatedUser = UserModel.fromJson(data);
-        if (_currentUser?.toJson().toString() !=
-            updatedUser.toJson().toString()) {
-          _currentUser = updatedUser;
-          notifyListeners();
-        }
-      }
-    });
-  }
-
-  Future<void> _saveSession(UserModel user,
-      {bool syncWithServer = true}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_data', json.encode(user.toJson()));
-    if (syncWithServer) await DatabaseService.instance.saveUser(user);
-    _currentUser = user;
-    notifyListeners();
-  }
-
   Future<bool> login(String identifier, String password,
       {UserRole? role}) async {
     _error = null;
     _isManualLogin = true;
+    _setLoading(true);
     try {
-      final String cleanId = identifier.trim().toLowerCase();
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-          email: cleanId, password: password);
-      if (result.user != null) {
-        await _handleFirebaseUser(result.user!, targetRole: role);
-        _isManualLogin = false;
-        return true;
+      final response = await _supabase.auth.signInWithPassword(
+        email: identifier.trim(),
+        password: password,
+      );
+      if (response.user == null) return false;
+      await _loadSupabaseProfile(response.user!.id);
+      if (_currentUser == null || (role != null && _currentUser!.role != role)) {
+        await logout();
+        _error = 'Aina ya akaunti hairuhusiwi hapa.';
+        return false;
       }
+      return true;
+    } on AuthException catch (e) {
+      _error = e.message;
       return false;
     } catch (e) {
-      _error = "Hitilafu: $e";
-      _isManualLogin = false;
+      _error = 'Hitilafu ya kuingia: $e';
       return false;
+    } finally {
+      _isManualLogin = false;
+      _setLoading(false);
     }
   }
 
@@ -201,36 +194,53 @@ class AuthProvider extends ChangeNotifier {
     String? vehicleType,
   }) async {
     try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(), password: password);
-      if (result.user != null) {
-        final newUser = UserModel(
-          id: result.user!.uid,
-          name: name,
-          email: email,
-          phoneNumber: phoneNumber,
-          role: role,
-          gender: gender,
-          dob: dob,
-          createdAt: DateTime.now(),
-          isVerified: false, // Force verification for everyone initially
-          verificationStatus: role == UserRole.driver
-              ? VerificationStatus.pending
-              : VerificationStatus.verified,
-          carModel: carModel,
-          carPlate: carPlate,
-          carYear: carYear,
-          vehicleType: vehicleType,
-        );
-        // 1. Trigger Email OTP kwanza ili iwe kwenye memory
-        await DatabaseService.instance.sendEmailOTP(email);
-
-        // 2. Kisha hifadhi session (Hii itasababisha UI i-rebuild na kwenda OTP Step)
-        await _saveSession(newUser);
-
-        return {'success': true, 'userId': newUser.id};
+      final newUser = UserModel(
+        id: '',
+        name: name,
+        email: email.trim(),
+        phoneNumber: phoneNumber,
+        role: role,
+        gender: gender,
+        dob: dob,
+        createdAt: DateTime.now(),
+        isVerified: false,
+        verificationStatus: role == UserRole.driver
+            ? VerificationStatus.pending
+            : VerificationStatus.verified,
+        carModel: carModel,
+        carPlate: carPlate,
+        carYear: carYear,
+        vehicleType: vehicleType,
+      );
+      final response = await _supabase.auth.signUp(
+        email: email.trim(),
+        password: password,
+        data: {'role': role.name, 'name': name, 'phone_number': phoneNumber},
+      );
+      final authUser = response.user;
+      if (authUser == null) {
+        return {'success': false, 'error': 'Usajili haukukamilika.'};
       }
-      return {'success': false, 'error': 'Failed to create user'};
+      final profile = newUser.copyWith();
+      final data = profile.toJson()..['id'] = authUser.id;
+      if (response.session != null) {
+        await _supabase.from('profiles').upsert({
+          'id': authUser.id,
+          'role': role.name,
+          'full_name': name,
+          'email': email.trim(),
+          'phone_number': phoneNumber,
+          'user_data': data,
+        });
+        await _loadSupabaseProfile(authUser.id);
+      }
+      return {
+        'success': true,
+        'userId': authUser.id,
+        'requiresEmailConfirmation': response.session == null,
+      };
+    } on AuthException catch (e) {
+      return {'success': false, 'error': e.message};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -262,33 +272,18 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     if (_currentUser == null) return false;
     try {
-      UserModel updatedUser = _currentUser!.copyWith(
-        name: name,
-        email: email,
-        phoneNumber: phoneNumber,
-        gender: gender,
-        dob: dob,
-        profileImageUrl: profileImageUrl,
-        carModel: carModel,
-        carPlate: carPlate,
-        carColor: carColor,
-        carYear: carYear,
-        vehicleType: vehicleType,
-        licenseUrl: licenseUrl,
-        insuranceUrl: insuranceUrl,
-        nationalIdUrl: nationalIdUrl,
-        vehiclePhotoUrl: vehiclePhotoUrl,
-        region: region,
-        city: city,
-        homeAddress: homeAddress,
-        workAddress: workAddress,
-        payoutNumber: payoutNumber,
-        payoutMethod: payoutMethod,
-        lastPhotoUpdate: updatePhotoTimestamp
-            ? DateTime.now()
-            : _currentUser!.lastPhotoUpdate,
+      final updated = _currentUser!.copyWith(
+        name: name, email: email, phoneNumber: phoneNumber, gender: gender,
+        dob: dob, profileImageUrl: profileImageUrl, carModel: carModel,
+        carPlate: carPlate, carColor: carColor, carYear: carYear,
+        vehicleType: vehicleType, licenseUrl: licenseUrl,
+        insuranceUrl: insuranceUrl, nationalIdUrl: nationalIdUrl,
+        vehiclePhotoUrl: vehiclePhotoUrl, region: region, city: city,
+        homeAddress: homeAddress, workAddress: workAddress,
+        payoutNumber: payoutNumber, payoutMethod: payoutMethod,
+        lastPhotoUpdate: updatePhotoTimestamp ? DateTime.now() : null,
       );
-      await _saveSession(updatedUser);
+      await _saveProfile(updated);
       return true;
     } catch (e) {
       _error = e.toString();
@@ -300,13 +295,14 @@ class AuthProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> forgotPassword(String identifier) async {
     _setLoading(true);
     try {
-      // Badala ya kutuma Link ya Firebase, tunatuma OTP kupitia EmailJS
-      bool sent = await DatabaseService.instance.sendEmailOTP(identifier.trim());
-      _setLoading(false);
-      return {'success': sent, 'message': sent ? 'OTP imetumwa kikamilifu!' : 'Imeshindikana kutuma OTP'};
+      await _supabase.auth.resetPasswordForEmail(identifier.trim());
+      return {'success': true, 'message': 'Maelekezo ya kubadili nenosiri yametumwa.'};
+    } on AuthException catch (e) {
+      return {'success': false, 'error': e.message};
     } catch (e) {
-      _setLoading(false);
       return {'success': false, 'error': e.toString()};
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -314,56 +310,71 @@ class AuthProvider extends ChangeNotifier {
       String identifier, String otp, String newPassword) async {
     _setLoading(true);
     try {
-      // 1. Uhakiki wa OTP
-      bool otpValid = await DatabaseService.instance.verifyEmailOTP(identifier, otp);
-      if (!otpValid) {
-        _setLoading(false);
-        return {'success': false, 'error': 'Kodi ya OTP siyo sahihi'};
-      }
-
-      // 2. Kwa sasa tunatumia OTP kutoa ruhusa ya kubadili password.
-      // Kwenye Production (Firebase), kubadili password bila link inahitaji
-      // Admin SDK au user awe logged in. Hapa tunathibitisha uhalali wa OTP.
-      
-      _setLoading(false);
-      return {'success': true, 'message': 'OTP imethibitishwa!'};
+      await _supabase.auth.verifyOTP(
+        email: identifier.trim(),
+        token: otp,
+        type: OtpType.recovery,
+      );
+      await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+      return {'success': true, 'message': 'Nenosiri limebadilishwa.'};
+    } on AuthException catch (e) {
+      return {'success': false, 'error': e.message};
     } catch (e) {
-      _setLoading(false);
       return {'success': false, 'error': e.toString()};
+    } finally {
+      _setLoading(false);
     }
   }
 
   Future<bool> verifyOtp(String identifier, String otp) async {
-    return await DatabaseService.instance.verifyEmailOTP(identifier, otp);
+    try {
+      final response = await _supabase.auth.verifyOTP(
+        email: identifier.trim(), token: otp, type: OtpType.email,
+      );
+      if (response.user != null) await _loadSupabaseProfile(response.user!.id);
+      return response.user != null;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> resendOtp(String identifier) async {
-    return await DatabaseService.instance.sendEmailOTP(identifier);
+    try {
+      await _supabase.auth.resend(
+        type: OtpType.signup, email: identifier.trim(),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<List<UserModel>> getPendingDrivers() async {
-    final drivers = await DatabaseService.instance.getAllDrivers();
-    // Inaleta dereva yeyote ambaye isVerified ni false (New Registration)
-    // AU mwenye profileEditStatus ni 'submitted' (Profile Update Review)
-    return drivers.where((d) => !d.isVerified || d.profileEditStatus == 'submitted').toList();
+    try {
+      final rows = await _supabase.from('profiles')
+          .select('id, role, user_data')
+          .eq('role', 'driver');
+      return rows.map((row) {
+        final data = row['user_data'] is Map
+            ? Map<String, dynamic>.from(row['user_data'])
+            : <String, dynamic>{};
+        data['id'] = row['id'];
+        data['role'] = row['role'];
+        return UserModel.fromJson(data);
+      }).where((user) => !user.isVerified ||
+          user.profileEditStatus == 'submitted').toList();
+    } catch (e) {
+      debugPrint('Unable to load pending drivers from Supabase: $e');
+      return [];
+    }
   }
 
   Future<void> logout() async {
-    _userSubscription?.cancel();
-    await _auth.signOut();
-    if (!kIsWeb) {
-      try {
-        await GoogleSignIn.instance.signOut();
-      } catch (e) {}
-    }
+    await _profileSubscription?.cancel();
+    await _supabase.auth.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_data');
     _currentUser = null;
-    notifyListeners();
-  }
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
     notifyListeners();
   }
 
@@ -371,41 +382,32 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _error = null;
     try {
-      if (kIsWeb) {
-        GoogleAuthProvider authProvider = GoogleAuthProvider();
-        final UserCredential userCredential =
-            await _auth.signInWithPopup(authProvider);
-        if (userCredential.user != null) {
-          await _handleFirebaseUser(userCredential.user!, targetRole: role);
-          _setLoading(false);
-          return {'success': true, 'user': _currentUser};
-        }
-      } else {
-        final GoogleSignInAccount? googleUser =
-            await GoogleSignIn.instance.authenticate();
-        if (googleUser == null) {
-          _setLoading(false);
-          return {'success': false, 'error': 'Sign in cancelled'};
-        }
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-        );
-        final UserCredential userCredential =
-            await _auth.signInWithCredential(credential);
-        if (userCredential.user != null) {
-          await _handleFirebaseUser(userCredential.user!, targetRole: role);
-          _setLoading(false);
-          return {'success': true, 'user': _currentUser};
-        }
-      }
-      _setLoading(false);
-      return {'success': false, 'error': 'Google Sign in failed'};
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'com.sta://login-callback/',
+        queryParams: {'prompt': 'select_account'},
+      );
+      return {'success': true, 'message': 'Endelea na uthibitishaji wa Google.'};
+    } on AuthException catch (e) {
+      _error = e.message;
+      return {'success': false, 'error': e.message};
     } catch (e) {
-      _error = "Imeshindikana: $e";
-      _setLoading(false);
+      _error = e.toString();
       return {'success': false, 'error': _error};
+    } finally {
+      _setLoading(false);
     }
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _profileSubscription?.cancel();
+    super.dispose();
   }
 }
