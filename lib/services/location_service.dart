@@ -60,11 +60,11 @@ class LocationService {
       });
     }
 
+    StreamSubscription<Position>? positionSubscription;
     service.on('stopService').listen((event) {
+      positionSubscription?.cancel();
       service.stopSelf();
     });
-
-    StreamSubscription<Position>? positionSubscription;
     positionSubscription = Geolocator.getPositionStream(
       locationSettings: AndroidSettings(
         accuracy: LocationAccuracy.high,
@@ -104,8 +104,5 @@ class LocationService {
       },
     );
 
-    service.on('stopService').listen((event) {
-      positionSubscription?.cancel();
-    });
   }
 }
