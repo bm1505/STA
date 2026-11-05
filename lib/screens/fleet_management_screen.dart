@@ -128,6 +128,21 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  String get _selectedRole {
+    for (final organization in _organizations) {
+      if (organization['id']?.toString() == _organizationId) {
+        return organization['role']?.toString() ?? 'viewer';
+      }
+    }
+    return 'owner';
+  }
+
+  bool get _canManageOrganization => ['admin','owner','manager'].contains(_selectedRole);
+  bool get _canManageFleet => ['admin','owner','manager','fleet_manager'].contains(_selectedRole);
+  bool get _canLogFuel => ['admin','owner','manager','fleet_manager','finance'].contains(_selectedRole);
+  bool get _canManageContracts => ['admin','owner','manager','finance'].contains(_selectedRole);
+  bool get _canViewAi => ['admin','owner','manager','fleet_manager','finance','viewer'].contains(_selectedRole);
+
   String _currency(dynamic value) =>
       'TZS ${_money.format((value as num?)?.round() ?? 0)}';
 
@@ -626,7 +641,8 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
         title: Text('Fleet & Transport', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(onPressed: _loadOrganizations, icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: _showAiInsights, icon: const Icon(Icons.auto_awesome, color: Color(0xFFFFD166))),
+          if (_canViewAi)
+            IconButton(onPressed: _showAiInsights, icon: const Icon(Icons.auto_awesome, color: Color(0xFFFFD166))),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -690,7 +706,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                     child: Text('*Before salaries, insurance, tax and other operating costs.',
                       style: TextStyle(color: Colors.white38, fontSize: 10)),
                   ),
-                  _sectionTitle('Vehicles', _addVehicle, 'Add vehicle'),
+                  _sectionTitle('Vehicles', _canManageFleet ? _addVehicle : null, 'Add vehicle'),
                   if (_vehicles.isEmpty)
                     const Text('No vehicles have been registered.', style: TextStyle(color: Colors.white54))
                   else
@@ -710,16 +726,18 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                             if (assignment != null) 'Driver: ${assignment['driver_name']}',
                           ].where((v) => v.isNotEmpty).join(' · '),
                             style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                          trailing: IconButton(
-                            tooltip: assignment == null ? 'Assign driver' : 'Unassign driver',
-                            onPressed: assignment == null
-                                ? () => _assignDriver(vehicle['id'].toString())
-                                : () => _unassignDriver(assignment['assignment_id'].toString()),
-                            icon: Icon(
-                              assignment == null ? Icons.person_add_alt_1 : Icons.person_remove_alt_1,
-                              color: const Color(0xFFFFD166),
-                            ),
-                          ),
+                          trailing: _canManageFleet
+                              ? IconButton(
+                                  tooltip: assignment == null ? 'Assign driver' : 'Unassign driver',
+                                  onPressed: assignment == null
+                                      ? () => _assignDriver(vehicle['id'].toString())
+                                      : () => _unassignDriver(assignment['assignment_id'].toString()),
+                                  icon: Icon(
+                                    assignment == null ? Icons.person_add_alt_1 : Icons.person_remove_alt_1,
+                                    color: const Color(0xFFFFD166),
+                                  ),
+                                )
+                              : null,
                         ),
                       );
                     }),
@@ -740,7 +758,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                           style: const TextStyle(color: Colors.white38, fontSize: 10)),
                       );
                     }),
-                  _sectionTitle('Team', _addMember, 'Add member'),
+                  _sectionTitle('Team', _canManageOrganization ? _addMember : null, 'Add member'),
                   ..._members.map((member) => ListTile(
                     leading: const Icon(Icons.person_outline, color: Colors.white60),
                     title: Text(member['member_name']?.toString() ?? 'STA member', style: const TextStyle(color: Colors.white)),
@@ -749,7 +767,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                     trailing: Text(member['phone_number']?.toString() ?? '',
                       style: const TextStyle(color: Colors.white38, fontSize: 10)),
                   )),
-                  _sectionTitle('Branches', _addBranch, 'Add branch'),
+                  _sectionTitle('Branches', _canManageOrganization ? _addBranch : null, 'Add branch'),
                   if (_branches.isEmpty)
                     const Text('No branches registered.', style: TextStyle(color: Colors.white54))
                   else
@@ -758,19 +776,19 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                       title: Text(branch['name']?.toString() ?? '', style: const TextStyle(color: Colors.white)),
                       subtitle: Text('${branch['city'] ?? ''} · ${branch['region'] ?? ''}', style: const TextStyle(color: Colors.white54)),
                     )),
-                  _sectionTitle('Fuel logs', _logFuel, 'Log fuel'),
+                  _sectionTitle('Fuel logs', _canLogFuel ? _logFuel : null, 'Log fuel'),
                   ..._fuelLogs.map((log) => ListTile(
                     leading: const Icon(Icons.local_gas_station, color: Colors.orangeAccent),
                     title: Text('${log['quantity_liters']} L · ${_currency(log['total_cost'])}', style: const TextStyle(color: Colors.white)),
                     subtitle: Text('${log['fuel_station'] ?? 'Fuel purchase'} · ${log['created_at']}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
                   )),
-                  _sectionTitle('Maintenance', _scheduleMaintenance, 'Schedule'),
+                  _sectionTitle('Maintenance', _canManageFleet ? _scheduleMaintenance : null, 'Schedule'),
                   ..._maintenance.map((record) => ListTile(
                     leading: Icon(record['status'] == 'completed' ? Icons.check_circle : Icons.build_circle,
                       color: record['status'] == 'completed' ? Colors.greenAccent : Colors.orangeAccent),
                     title: Text(record['maintenance_type']?.toString() ?? 'Maintenance', style: const TextStyle(color: Colors.white)),
                     subtitle: Text('${record['status']} · ${_currency(record['cost'])}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                    trailing: ['scheduled','in_progress'].contains(record['status'])
+                    trailing: _canManageFleet && ['scheduled','in_progress'].contains(record['status'])
                         ? IconButton(
                             tooltip: 'Mark completed',
                             icon: const Icon(Icons.check_circle_outline, color: Colors.greenAccent),
@@ -786,7 +804,7 @@ class _FleetManagementScreenState extends State<FleetManagementScreen> {
                           )
                         : null,
                   )),
-                  _sectionTitle('Transport contracts', _addContract, 'Add contract'),
+                  _sectionTitle('Transport contracts', _canManageContracts ? _addContract : null, 'Add contract'),
                   ..._contracts.map((contract) => ListTile(
                     leading: const Icon(Icons.description_outlined, color: Colors.white60),
                     title: Text(contract['client_name']?.toString() ?? '', style: const TextStyle(color: Colors.white)),
