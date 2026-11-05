@@ -27,8 +27,8 @@ begin
      or p_longitude not between -180 and 180 then
     raise exception 'Invalid pickup coordinates';
   end if;
-  if p_radius_meters is null or p_radius_meters <= 0 or p_radius_meters > 100000 then
-    raise exception 'Search radius must be between 1 and 100000 metres';
+  if p_radius_meters is null or p_radius_meters <= 0 or p_radius_meters > 15000 then
+    raise exception 'Search radius must be between 1 and 15000 metres';
   end if;
   if not public.sta_is_active_admin() and not exists (
     select 1 from public.ride_requests r
