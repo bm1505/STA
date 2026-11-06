@@ -8,6 +8,9 @@ allprojects {
 rootProject.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir("../../build").get())
 
 subprojects {
+    // Evaluate the host app before Flutter plugin subprojects. Flutter's
+    // Gradle plugin registers afterEvaluate callbacks on these projects.
+    project.evaluationDependsOn(":app")
     project.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(project.name).get())
 }
 
