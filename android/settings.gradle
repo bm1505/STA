@@ -17,25 +17,10 @@ pluginManagement {
 }
 
 plugins {
-    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+    // Let Flutter discover and include Android plugin projects in the supported order.
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "8.9.1" apply false
     id "org.jetbrains.kotlin.android" version "2.3.10" apply false
 }
 
 include ":app"
-
-def flutterPluginsFile = file("../.flutter-plugins-dependencies")
-if (flutterPluginsFile.exists()) {
-    def flutterPlugins = new groovy.json.JsonSlurper()
-            .parseText(flutterPluginsFile.text)
-            .plugins
-            .android
-
-    flutterPlugins.each { plugin ->
-        def pluginDirectory = file("${plugin.path}/android")
-        if (pluginDirectory.exists()) {
-            include ":${plugin.name}"
-            project(":${plugin.name}").projectDir = pluginDirectory
-        }
-    }
-}
