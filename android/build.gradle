@@ -9,33 +9,6 @@ rootProject.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(".
 
 subprojects {
     project.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(project.name).get())
-    
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                if (namespace == null) {
-                    def manifestFile = project.file('src/main/AndroidManifest.xml')
-                    if (manifestFile.exists()) {
-                        def xml = new XmlParser().parse(manifestFile)
-                        def pkg = xml.attribute('package')
-                        if (pkg) {
-                            project.android.namespace = pkg
-                        }
-                    }
-                }
-                // Enforce consistent JVM target to fix "Inconsistent JVM-target compatibility"
-                compileOptions {
-                    sourceCompatibility JavaVersion.VERSION_11
-                    targetCompatibility JavaVersion.VERSION_11
-                }
-                if (project.plugins.hasPlugin('kotlin-android')) {
-                    kotlinOptions {
-                        jvmTarget = "11"
-                    }
-                }
-            }
-        }
-    }
 }
 
 tasks.register("clean", Delete) {
