@@ -64,7 +64,7 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release --flavor ${{ matrix.flavor }} --target ${{ matrix.target }}
+        run: flutter build apk --release --verbose --flavor ${{ matrix.flavor }} --target ${{ matrix.target }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
